@@ -110,7 +110,7 @@ export async function GET(request: Request) {
 
           // メール送信
           const { error: mailErr } = await resend.emails.send({
-            from: '繁殖牛管理 <noreply@resend.dev>',
+            from: '繁殖牛管理 <noreply@ryuoshida.com>',
             to: notifyEmail,
             subject: `【繁殖牛管理】${cow.ear_tag} の${notif.type}まで${notif.daysUntil}日前です`,
             html: `
