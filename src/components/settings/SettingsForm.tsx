@@ -1,0 +1,183 @@
+'use client'
+
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+
+export default function SettingsForm({
+  userId,
+  userEmail,
+  initialSettings,
+}: {
+  userId: string
+  userEmail: string
+  initialSettings: {
+    email: string
+    notify_7days: boolean
+    notify_3days: boolean
+  } | null
+}) {
+  const [email, setEmail] = useState(initialSettings?.email ?? userEmail)
+  const [notify7, setNotify7] = useState(initialSettings?.notify_7days ?? true)
+  const [notify3, setNotify3] = useState(initialSettings?.notify_3days ?? true)
+  const [loading, setLoading] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const router = useRouter()
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setSaveError('')
+
+    const supabase = createClient()
+    const payload = { user_id: userId, email, notify_7days: notify7, notify_3days: notify3 }
+
+    const { error } = initialSettings
+      ? await supabase.from('notification_settings').update({ email, notify_7days: notify7, notify_3days: notify3 }).eq('user_id', userId)
+      : await supabase.from('notification_settings').insert(payload)
+
+    if (error) {
+      setSaveError('設定の保存に失敗しました。もう一度お試しください。')
+    } else {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
+    setLoading(false)
+  }
+
+  const handleExportCSV = async () => {
+    const supabase = createClient()
+
+    // サイクル情報も取得して精液を正しく紐付ける
+    const { data: cows } = await supabase.from('cows').select('*').eq('user_id', userId)
+    const { data: cycles } = await supabase.from('breeding_cycles').select('*').eq('user_id', userId)
+    const { data: events } = await supabase.from('breeding_events').select('*').eq('user_id', userId)
+    const { data: inseminations } = await supabase.from('insemination_records').select('*').eq('user_id', userId)
+
+    const rows = [
+      ['耳標番号', '生年月日', '父牛名', '母牛名', '発情確認日', '種付け日', '使用精液', '妊娠鑑定日', '妊娠結果', '分娩予定日', '分娩日', '子牛性別', '子牛体重'],
+    ]
+
+    for (const cow of cows ?? []) {
+      const cowEvents = events?.filter(e => e.cow_id === cow.id) ?? []
+
+      if (cowEvents.length === 0) {
+        rows.push([cow.ear_tag, cow.birth_date ?? '', cow.father_name ?? '', cow.mother_name ?? '', '', '', '', '', '', '', '', '', ''])
+      } else {
+        for (const event of cowEvents) {
+          // cycle_idを介して正しく精液を紐付ける
+          const cowInseminations = inseminations?.filter(i => i.cycle_id === event.cycle_id) ?? []
+          const latestInsem = cowInseminations.sort((a, b) => b.attempt_number - a.attempt_number)[0]
+
+          rows.push([
+            cow.ear_tag,
+            cow.birth_date ?? '',
+            cow.father_name ?? '',
+            cow.mother_name ?? '',
+            event.estrus_date ?? '',
+            latestInsem?.insemination_date ?? '',
+            latestInsem?.semen_name ?? '',
+            event.pregnancy_check_date ?? '',
+            event.pregnancy_result === true ? '陽性' : event.pregnancy_result === false ? '陰性' : '',
+            event.expected_calving_date ?? '',
+            event.actual_calving_date ?? '',
+            event.calf_gender === 'male' ? 'オス' : event.calf_gender === 'female' ? 'メス' : '',
+            event.calf_weight?.toString() ?? '',
+          ])
+        }
+      }
+    }
+
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `繁殖記録_${new Date().toLocaleDateString('ja-JP').replace(/\//g, '-')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleLogout = async () => {
+    if (!window.confirm('ログアウトしますか？')) return
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleSave} className="space-y-6">
+        <div className="bg-white rounded-2xl border-2 border-gray-100 p-4 space-y-4">
+          <h2 className="text-lg font-bold text-gray-700">通知設定</h2>
+
+          <div>
+            <label className="block text-base font-medium text-gray-700 mb-2">通知先メールアドレス</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <ToggleRow label="7日前に通知" value={notify7} onChange={setNotify7} />
+            <ToggleRow label="3日前に通知" value={notify3} onChange={setNotify3} />
+          </div>
+        </div>
+
+        {saveError && (
+          <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{saveError}</p>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full h-14 bg-[#1b4332] text-white text-xl font-bold rounded-xl disabled:opacity-50"
+        >
+          {saved ? '✅ 保存しました' : loading ? '保存中...' : '設定を保存'}
+        </button>
+      </form>
+
+      <div className="bg-white rounded-2xl border-2 border-gray-100 p-4 space-y-4">
+        <h2 className="text-lg font-bold text-gray-700">データ</h2>
+        <button
+          onClick={handleExportCSV}
+          className="w-full h-14 bg-white border-2 border-[#1b4332] text-[#1b4332] text-lg font-bold rounded-xl"
+        >
+          📥 CSVでエクスポート
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl border-2 border-gray-100 p-4">
+        <h2 className="text-lg font-bold text-gray-700 mb-4">アカウント</h2>
+        <button
+          onClick={handleLogout}
+          className="w-full h-14 bg-white border-2 border-red-300 text-red-600 text-lg font-bold rounded-xl"
+        >
+          ログアウト
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    // ラベル行全体をタップ領域にして44px以上確保
+    <label className="flex items-center justify-between py-3 cursor-pointer">
+      <span className="text-base text-gray-700">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        onClick={() => onChange(!value)}
+        className={`w-14 h-8 rounded-full transition-colors relative flex-shrink-0 ${value ? 'bg-[#1b4332]' : 'bg-gray-300'}`}
+      >
+        <span className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-7' : 'translate-x-1'}`} />
+      </button>
+    </label>
+  )
+}
