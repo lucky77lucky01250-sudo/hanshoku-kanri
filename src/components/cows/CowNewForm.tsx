@@ -92,7 +92,7 @@ export default function CowNewForm() {
         <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{error}</p>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 bg-white border-t border-gray-200">
+      <div className="fixed bottom-20 left-0 right-0 p-4 bg-white border-t border-gray-200">
         <button
           type="submit"
           disabled={loading}
