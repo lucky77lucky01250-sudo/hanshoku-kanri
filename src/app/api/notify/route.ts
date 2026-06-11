@@ -115,7 +115,7 @@ export async function GET(request: Request) {
             subject: `【繁殖牛管理】${cow.ear_tag} の${notif.type}まで${notif.daysUntil}日前です`,
             html: `
               <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #1b4332;">🐄 繁殖牛管理 お知らせ</h2>
+                <h2 style="color: #1b4332;">🐂 繁殖牛管理 お知らせ</h2>
                 <div style="background: #f0fdf4; border-left: 4px solid #1b4332; padding: 16px; border-radius: 8px; margin: 16px 0;">
                   <p style="font-size: 18px; font-weight: bold; margin: 0;">
                     ${cow.ear_tag} の<strong>${notif.type}</strong>まで<strong>${notif.daysUntil}日</strong>です

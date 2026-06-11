@@ -43,7 +43,7 @@ export default function CowList({ initialCows }: { initialCows: Cow[] }) {
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <div className="text-5xl mb-4">🐄</div>
+          <div className="text-5xl mb-4">🐂</div>
           <p className="text-lg">
             {filter === 'action' ? '対応が必要な牛はいません' : '牛が登録されていません'}
           </p>
@@ -73,6 +73,13 @@ function CowCard({ cow }: { cow: Cow }) {
             {cow.birth_date && (
               <p className="text-sm text-gray-600 mt-0.5">
                 生年月日: {new Date(cow.birth_date).toLocaleDateString('ja-JP')}
+              </p>
+            )}
+            {(cow.father_name || cow.mother_name) && (
+              <p className="text-sm text-gray-600 mt-0.5">
+                {cow.father_name && <span>父: {cow.father_name}</span>}
+                {cow.father_name && cow.mother_name && <span className="mx-1.5 text-gray-300">/</span>}
+                {cow.mother_name && <span>母: {cow.mother_name}</span>}
               </p>
             )}
           </div>

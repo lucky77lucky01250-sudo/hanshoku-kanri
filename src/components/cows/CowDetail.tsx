@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import type { Database, CowStatus } from '@/types/database'
 import { STATUS_CONFIG } from '@/lib/status'
 
@@ -16,6 +18,10 @@ const STEPS = [
 
 export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) {
   const [tab, setTab] = useState<'current' | 'history'>('current')
+  const [isEditing, setIsEditing] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const router = useRouter()
+
   const status = STATUS_CONFIG[cow.current_status as CowStatus]
   const currentCycle = cycles[0]
   const pastCycles = cycles.slice(1)
@@ -29,13 +35,46 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
     ? addDays(latestInsemination.insemination_date, 21)
     : null
 
+  const handleDelete = async () => {
+    const supabase = createClient()
+    await supabase.from('cows').delete().eq('id', cow.id)
+    router.push('/cows')
+    router.refresh()
+  }
+
+  if (isEditing) {
+    return (
+      <CowEditForm
+        cow={cow}
+        onCancel={() => setIsEditing(false)}
+        onSaved={() => { setIsEditing(false); router.refresh() }}
+      />
+    )
+  }
+
   return (
     <div className="px-4 py-4">
       {/* 母牛情報 */}
       <div className="bg-white rounded-2xl border-2 border-gray-100 p-4 mb-4 space-y-2">
-        <h2 className="text-lg font-bold text-gray-700">母牛情報</h2>
-        {cow.father_name && <InfoRow label="父牛名" value={cow.father_name} />}
-        {cow.mother_name && <InfoRow label="母牛名" value={cow.mother_name} />}
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-lg font-bold text-gray-700">母牛情報</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="px-3 py-1 text-sm font-medium text-[#1b4332] border border-[#1b4332] rounded-lg"
+            >
+              編集
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="px-3 py-1 text-sm font-medium text-red-600 border border-red-300 rounded-lg"
+            >
+              削除
+            </button>
+          </div>
+        </div>
+        {cow.father_name && <PedigreeRow label="父牛名" value={cow.father_name} />}
+        {cow.mother_name && <PedigreeRow label="母牛名" value={cow.mother_name} />}
         {!cow.father_name && !cow.mother_name && (
           <p className="text-gray-400 text-sm">血統情報なし</p>
         )}
@@ -85,7 +124,7 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
             <div className="flex items-center justify-between mb-4">
               {STEPS.map((step, i) => {
                 const isActive = isStepActive(step.key, cow.current_status as CowStatus, currentEvent, latestInsemination)
-                const isDone = isStepDone(step.key, currentEvent, latestInsemination)
+                const isDone = isStepDone(step.key, cow.current_status as CowStatus, currentEvent, latestInsemination)
                 return (
                   <div key={step.key} className="flex items-center flex-1">
                     <div className={`flex flex-col items-center flex-1 ${i < STEPS.length - 1 ? 'relative' : ''}`}>
@@ -166,6 +205,144 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
           )}
         </div>
       )}
+
+      {/* 削除確認モーダル */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <h3 className="text-xl font-bold text-gray-800">牛を削除しますか？</h3>
+            <p className="text-gray-600">
+              <span className="font-bold">{cow.ear_tag}</span> の全ての記録が削除されます。この操作は取り消せません。
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 h-14 border-2 border-gray-300 rounded-xl font-bold text-gray-600 text-lg"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 h-14 bg-red-600 text-white rounded-xl font-bold text-lg"
+              >
+                削除する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CowEditForm({ cow, onCancel, onSaved }: { cow: Cow; onCancel: () => void; onSaved: () => void }) {
+  const [earTag, setEarTag] = useState(cow.ear_tag)
+  const [birthDate, setBirthDate] = useState(cow.birth_date ?? '')
+  const [fatherName, setFatherName] = useState(cow.father_name ?? '')
+  const [motherName, setMotherName] = useState(cow.mother_name ?? '')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!earTag.trim()) { setError('耳標番号は必須です'); return }
+    setLoading(true)
+    setError('')
+
+    const supabase = createClient()
+    const { error: updateErr } = await supabase.from('cows').update({
+      ear_tag: earTag.trim(),
+      birth_date: birthDate || null,
+      father_name: fatherName.trim() || null,
+      mother_name: motherName.trim() || null,
+    }).eq('id', cow.id)
+
+    if (updateErr) {
+      setError('更新に失敗しました。もう一度お試しください。')
+    } else {
+      onSaved()
+    }
+    setLoading(false)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="px-4 py-4 space-y-6 pb-28">
+      <h2 className="text-lg font-bold text-gray-700">牛情報を編集</h2>
+
+      <div>
+        <label className="block text-base font-bold text-gray-700 mb-2">
+          耳標番号 <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          value={earTag}
+          onChange={(e) => setEarTag(e.target.value)}
+          required
+          className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
+        />
+      </div>
+
+      <div>
+        <label className="block text-base font-bold text-gray-700 mb-2">生年月日</label>
+        <input
+          type="date"
+          value={birthDate}
+          onChange={(e) => setBirthDate(e.target.value)}
+          className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
+        />
+      </div>
+
+      <div>
+        <label className="block text-base font-bold text-gray-700 mb-2">父牛名</label>
+        <input
+          type="text"
+          value={fatherName}
+          onChange={(e) => setFatherName(e.target.value)}
+          className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
+          placeholder="例: 勝忠平"
+        />
+      </div>
+
+      <div>
+        <label className="block text-base font-bold text-gray-700 mb-2">母牛名</label>
+        <input
+          type="text"
+          value={motherName}
+          onChange={(e) => setMotherName(e.target.value)}
+          className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
+          placeholder="例: はな"
+        />
+      </div>
+
+      {error && (
+        <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{error}</p>
+      )}
+
+      <div className="fixed bottom-20 left-0 right-0 p-4 bg-white border-t border-gray-200 flex gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 h-14 border-2 border-gray-300 rounded-xl font-bold text-gray-600 text-lg"
+        >
+          キャンセル
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex-1 h-14 bg-[#1b4332] text-white text-lg font-bold rounded-xl disabled:opacity-50"
+        >
+          {loading ? '保存中...' : '保存する'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function PedigreeRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <span className="text-gray-500 w-16 flex-shrink-0">{label}</span>
+      <span className="font-medium text-gray-900">{value}</span>
     </div>
   )
 }
@@ -197,7 +374,18 @@ function isStepActive(step: string, status: CowStatus, event: any, insemination:
   return false
 }
 
-function isStepDone(step: string, event: any, insemination: any): boolean {
+// 現在ステータスより前のステップ（スキップ登録分）も完了扱いにする
+const STATUS_PASSED_STEPS: Record<CowStatus, string[]> = {
+  idle: [],
+  estrus_pending: [],
+  inseminated: ['estrus'],
+  pregnancy_check_pending: ['estrus', 'insemination'],
+  calving_pending: ['estrus', 'insemination', 'pregnancy_check'],
+}
+
+function isStepDone(step: string, status: CowStatus, event: any, insemination: any): boolean {
+  // スキップ登録などで現在ステータスが先に進んでいる場合は完了扱い
+  if (STATUS_PASSED_STEPS[status]?.includes(step)) return true
   if (!event) return false
   if (step === 'estrus') return !!event.estrus_date
   if (step === 'insemination') return !!insemination?.insemination_date

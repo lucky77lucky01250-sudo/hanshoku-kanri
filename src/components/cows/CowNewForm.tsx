@@ -4,14 +4,30 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
+type InitialStatus = 'idle' | 'pregnancy_check_pending' | 'calving_pending'
+
+const STATUS_OPTIONS: { value: InitialStatus; label: string; desc: string }[] = [
+  { value: 'idle', label: '⚪ 待機中', desc: '発情確認から開始' },
+  { value: 'pregnancy_check_pending', label: '🟠 妊娠鑑定待ち', desc: '種付け済みで購入した牛など' },
+  { value: 'calving_pending', label: '🟢 分娩待ち', desc: '妊娠が確認済みの牛など' },
+]
+
+function getTodayStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function CowNewForm() {
   const [earTag, setEarTag] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [fatherName, setFatherName] = useState('')
   const [motherName, setMotherName] = useState('')
+  const [initialStatus, setInitialStatus] = useState<InitialStatus>('idle')
+  const [nextActionDate, setNextActionDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!earTag.trim()) { setError('耳標番号は必須です'); return }
@@ -22,21 +38,45 @@ export default function CowNewForm() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/'); return }
 
-    const { error } = await supabase.from('cows').insert({
+    const { data: cow, error: cowErr } = await supabase.from('cows').insert({
       user_id: user.id,
       ear_tag: earTag.trim(),
       birth_date: birthDate || null,
       father_name: fatherName.trim() || null,
       mother_name: motherName.trim() || null,
-      current_status: 'idle',
-    })
+      current_status: initialStatus,
+      next_action_date: nextActionDate || null,
+    }).select().single()
 
-    if (error) {
+    if (cowErr || !cow) {
       setError('登録に失敗しました。もう一度お試しください。')
-    } else {
-      router.push('/cows')
-      router.refresh()
+      setLoading(false)
+      return
     }
+
+    // スキップ: 待機中以外はサイクル＋イベントを作成して現在ステータスから開始
+    if (initialStatus !== 'idle') {
+      const { data: cycle, error: cycleErr } = await supabase
+        .from('breeding_cycles')
+        .insert({ cow_id: cow.id, user_id: user.id, cycle_number: 1 })
+        .select()
+        .single()
+
+      if (!cycleErr && cycle) {
+        const eventData: Record<string, unknown> = {
+          cycle_id: cycle.id,
+          cow_id: cow.id,
+          user_id: user.id,
+        }
+        if (initialStatus === 'calving_pending' && nextActionDate) {
+          eventData.expected_calving_date = nextActionDate
+        }
+        await supabase.from('breeding_events').insert(eventData)
+      }
+    }
+
+    router.push('/cows')
+    router.refresh()
     setLoading(false)
   }
 
@@ -87,6 +127,58 @@ export default function CowNewForm() {
           placeholder="例: はな"
         />
       </div>
+
+      {/* 現在のステータス（スキップ機能） */}
+      <div>
+        <label className="block text-base font-bold text-gray-700 mb-1">現在のステータス</label>
+        <p className="text-sm text-gray-400 mb-3">購入した妊娠牛など、途中から開始する場合に変更してください</p>
+        <div className="space-y-2">
+          {STATUS_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { setInitialStatus(opt.value); setNextActionDate('') }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-colors ${
+                initialStatus === opt.value
+                  ? 'bg-[#1b4332] text-white border-[#1b4332]'
+                  : 'bg-white text-gray-700 border-gray-200'
+              }`}
+            >
+              <div>
+                <p className="font-bold">{opt.label}</p>
+                <p className={`text-sm ${initialStatus === opt.value ? 'text-green-200' : 'text-gray-400'}`}>{opt.desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 分娩待ちの場合は分娩予定日を入力できる */}
+      {initialStatus === 'calving_pending' && (
+        <div>
+          <label className="block text-base font-bold text-gray-700 mb-2">分娩予定日（任意）</label>
+          <input
+            type="date"
+            value={nextActionDate}
+            onChange={(e) => setNextActionDate(e.target.value)}
+            min={getTodayStr()}
+            className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
+          />
+        </div>
+      )}
+
+      {/* 妊娠鑑定待ちの場合は鑑定予定日 */}
+      {initialStatus === 'pregnancy_check_pending' && (
+        <div>
+          <label className="block text-base font-bold text-gray-700 mb-2">妊娠鑑定予定日（任意）</label>
+          <input
+            type="date"
+            value={nextActionDate}
+            onChange={(e) => setNextActionDate(e.target.value)}
+            className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
+          />
+        </div>
+      )}
 
       {error && (
         <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{error}</p>
