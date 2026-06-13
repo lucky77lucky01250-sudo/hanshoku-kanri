@@ -62,16 +62,29 @@ export default function CowNewForm() {
         .select()
         .single()
 
-      if (!cycleErr && cycle) {
-        const eventData: Record<string, unknown> = {
-          cycle_id: cycle.id,
-          cow_id: cow.id,
-          user_id: user.id,
-        }
-        if (initialStatus === 'calving_pending' && nextActionDate) {
-          eventData.expected_calving_date = nextActionDate
-        }
-        await supabase.from('breeding_events').insert(eventData)
+      // サイクル作成に失敗したら、作成済みの牛を削除してロールバック（イベント無しの不整合牛を防ぐ）
+      if (cycleErr || !cycle) {
+        await supabase.from('cows').delete().eq('id', cow.id)
+        setError('登録に失敗しました。もう一度お試しください。')
+        setLoading(false)
+        return
+      }
+
+      const eventData: Record<string, unknown> = {
+        cycle_id: cycle.id,
+        cow_id: cow.id,
+        user_id: user.id,
+      }
+      if (initialStatus === 'calving_pending' && nextActionDate) {
+        eventData.expected_calving_date = nextActionDate
+      }
+      const { error: eventErr } = await supabase.from('breeding_events').insert(eventData)
+      if (eventErr) {
+        // 牛を削除（cycle はCASCADEで一緒に消える）
+        await supabase.from('cows').delete().eq('id', cow.id)
+        setError('登録に失敗しました。もう一度お試しください。')
+        setLoading(false)
+        return
       }
     }
 
@@ -184,7 +197,7 @@ export default function CowNewForm() {
         <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{error}</p>
       )}
 
-      <div className="fixed bottom-20 left-0 right-0 p-4 bg-white border-t border-gray-200">
+      <div className="fixed bottom-20 left-0 right-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-white border-t border-gray-200">
         <button
           type="submit"
           disabled={loading}

@@ -24,12 +24,12 @@ export default function SettingsForm({
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState('')
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const router = useRouter()
 
   const handleTestNotify = async () => {
     setTesting(true)
-    setTestResult('')
+    setTestResult(null)
     try {
       const res = await fetch('/api/notify/test', {
         method: 'POST',
@@ -38,12 +38,12 @@ export default function SettingsForm({
       })
       const data = await res.json()
       if (res.ok) {
-        setTestResult(`✅ ${email} に送信しました。受信を確認してください。`)
+        setTestResult({ ok: true, message: `✅ ${data.to ?? email} に送信しました。受信を確認してください。` })
       } else {
-        setTestResult(`⚠️ 送信に失敗しました：${data.error ?? '不明なエラー'}`)
+        setTestResult({ ok: false, message: `⚠️ 送信に失敗しました：${data.error ?? '不明なエラー'}` })
       }
     } catch {
-      setTestResult('⚠️ 送信に失敗しました。通信エラーです。')
+      setTestResult({ ok: false, message: '⚠️ 送信に失敗しました。通信エラーです。' })
     }
     setTesting(false)
   }
@@ -160,7 +160,13 @@ export default function SettingsForm({
               {testing ? '送信中...' : '✉️ テストメールを送信'}
             </button>
             {testResult && (
-              <p className="text-sm font-medium mt-2 text-gray-700">{testResult}</p>
+              <p className={`text-sm font-bold mt-2 p-3 rounded-xl border ${
+                testResult.ok
+                  ? 'text-green-700 bg-green-50 border-green-200'
+                  : 'text-red-700 bg-red-50 border-red-200'
+              }`}>
+                {testResult.message}
+              </p>
             )}
           </div>
         </div>

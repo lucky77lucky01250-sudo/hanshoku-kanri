@@ -12,11 +12,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
   }
 
-  // 送信先は本文で渡されたメール（設定中の値）を優先、なければログインメール
+  // 送信先はサーバ側でログインユーザー本人に固定する（任意宛先への踏み台送信を防ぐ）。
+  // 設定画面で別アドレスを通知先にしている場合のみ、その値を許可する。
   let to = user.email ?? ''
   try {
     const body = await request.json()
-    if (body?.email) to = String(body.email)
+    if (body?.email) {
+      const { data: setting } = await supabase
+        .from('notification_settings')
+        .select('email')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      // 本人のメール、または保存済みの通知先メールと一致する場合のみ許可
+      if (body.email === user.email || (setting && body.email === setting.email)) {
+        to = String(body.email)
+      }
+    }
   } catch {}
 
   if (!to) {

@@ -21,6 +21,8 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
   const [isEditing, setIsEditing] = useState(false)
   const [isEditingRecord, setIsEditingRecord] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   const router = useRouter()
 
   const status = STATUS_CONFIG[cow.current_status as CowStatus]
@@ -37,8 +39,15 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
     : null
 
   const handleDelete = async () => {
+    setIsDeleting(true)
+    setDeleteError('')
     const supabase = createClient()
-    await supabase.from('cows').delete().eq('id', cow.id)
+    const { error } = await supabase.from('cows').delete().eq('id', cow.id)
+    if (error) {
+      setDeleteError('削除に失敗しました。もう一度お試しください。')
+      setIsDeleting(false)
+      return
+    }
     router.push('/cows')
     router.refresh()
   }
@@ -257,18 +266,23 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
             <p className="text-gray-600">
               <span className="font-bold">{cow.ear_tag}</span> の全ての記録が削除されます。この操作は取り消せません。
             </p>
+            {deleteError && (
+              <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{deleteError}</p>
+            )}
             <div className="flex gap-3">
               <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 h-14 border-2 border-gray-300 rounded-xl font-bold text-gray-600 text-lg"
+                onClick={() => { setShowDeleteConfirm(false); setDeleteError('') }}
+                disabled={isDeleting}
+                className="flex-1 h-14 border-2 border-gray-300 rounded-xl font-bold text-gray-600 text-lg disabled:opacity-50"
               >
                 キャンセル
               </button>
               <button
                 onClick={handleDelete}
-                className="flex-1 h-14 bg-red-600 text-white rounded-xl font-bold text-lg"
+                disabled={isDeleting}
+                className="flex-1 h-14 bg-red-600 text-white rounded-xl font-bold text-lg disabled:opacity-50"
               >
-                削除する
+                {isDeleting ? '削除中...' : '削除する'}
               </button>
             </div>
           </div>
@@ -351,24 +365,32 @@ function RecordEditForm({
         }
       }
 
-      // 現在ステータスに応じて次回予定日を再計算
+      // 修正後の値に基づいてステータスと次回予定日を再計算
+      let nextStatus: CowStatus = cow.current_status as CowStatus
       let nextDate: string | null = cow.next_action_date
-      switch (cow.current_status) {
-        case 'inseminated':
-          if (estrusDate) nextDate = addDays(estrusDate, 1)
-          break
-        case 'pregnancy_check_pending':
-          if (inseminationDate) nextDate = addDays(inseminationDate, 30)
-          break
-        case 'calving_pending':
+
+      if (showCalving) {
+        // 分娩済み（サイクル完了）。分娩情報の修正ではステータスは変えない
+      } else if (showPregnancy && pregnancyResult !== null) {
+        // 妊娠鑑定結果の修正はステータス遷移を伴う
+        if (pregnancyResult) {
+          nextStatus = 'calving_pending'
           nextDate = expectedCalvingDate || null
-          break
-        case 'estrus_pending':
-          if (pregnancyCheckDate) nextDate = addDays(pregnancyCheckDate, 18)
-          break
+        } else {
+          nextStatus = 'estrus_pending'
+          nextDate = pregnancyCheckDate ? addDays(pregnancyCheckDate, 18) : null
+        }
+      } else {
+        // 鑑定前の段階：日付のみ再計算（ステータスは据え置き）
+        if (cow.current_status === 'inseminated' && estrusDate) nextDate = addDays(estrusDate, 1)
+        else if (cow.current_status === 'pregnancy_check_pending' && inseminationDate) nextDate = addDays(inseminationDate, 30)
       }
-      if (nextDate !== cow.next_action_date) {
-        const { error: e3 } = await supabase.from('cows').update({ next_action_date: nextDate }).eq('id', cow.id)
+
+      const cowUpdate: { current_status?: CowStatus; next_action_date?: string | null } = {}
+      if (nextStatus !== cow.current_status) cowUpdate.current_status = nextStatus
+      if (nextDate !== cow.next_action_date) cowUpdate.next_action_date = nextDate
+      if (Object.keys(cowUpdate).length > 0) {
+        const { error: e3 } = await supabase.from('cows').update(cowUpdate).eq('id', cow.id)
         if (e3) throw e3
       }
 
@@ -472,7 +494,7 @@ function RecordEditForm({
         <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{error}</p>
       )}
 
-      <div className="fixed bottom-20 left-0 right-0 p-4 bg-white border-t border-gray-200 flex gap-3">
+      <div className="fixed bottom-20 left-0 right-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-white border-t border-gray-200 flex gap-3">
         <button type="button" onClick={onCancel}
           className="flex-1 h-14 border-2 border-gray-300 rounded-xl font-bold text-gray-600 text-lg">
           キャンセル
@@ -569,7 +591,7 @@ function CowEditForm({ cow, onCancel, onSaved }: { cow: Cow; onCancel: () => voi
         <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{error}</p>
       )}
 
-      <div className="fixed bottom-20 left-0 right-0 p-4 bg-white border-t border-gray-200 flex gap-3">
+      <div className="fixed bottom-20 left-0 right-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-white border-t border-gray-200 flex gap-3">
         <button
           type="button"
           onClick={onCancel}
@@ -612,9 +634,10 @@ function formatDate(d: string) {
 }
 
 function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr)
+  // ローカル0時基準でパースし、TZによる1日ずれを防ぐ（他ファイルと統一）
+  const d = new Date(dateStr + 'T00:00:00')
   d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function isStepActive(step: string, status: CowStatus, event: any, insemination: any): boolean {
