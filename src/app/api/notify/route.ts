@@ -136,13 +136,16 @@ export async function GET(request: Request) {
             continue
           }
 
-          // 送信ログに記録
-          await supabase.from('notification_logs').insert({
+          // 送信ログに記録（失敗すると翌日同じ通知が再送されうるため、エラーを記録して可視化する）
+          const { error: logErr } = await supabase.from('notification_logs').insert({
             user_id: userId,
             cow_id: cow.id,
             notification_type: notifType,
             scheduled_date: notif.date,
           })
+          if (logErr) {
+            errors.push(`${cow.ear_tag}: メール送信は成功しましたが送信ログの記録に失敗しました（重複送信の可能性）: ${logErr.message}`)
+          }
 
           sentCount++
         }

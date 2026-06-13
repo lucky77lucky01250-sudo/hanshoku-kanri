@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -29,7 +29,19 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: Cycle[] }
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
+
+  // 削除モーダル：Escで閉じる＋開いたらキャンセルボタンに初期フォーカス
+  useEffect(() => {
+    if (!showDeleteConfirm) return
+    cancelDeleteRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isDeleting) { setShowDeleteConfirm(false); setDeleteError('') }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showDeleteConfirm, isDeleting])
 
   const status = STATUS_CONFIG[cow.current_status as CowStatus]
   const currentCycle = cycles[0]
@@ -266,17 +278,27 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: Cycle[] }
 
       {/* 削除確認モーダル */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-4">
-            <h3 className="text-xl font-bold text-gray-800">牛を削除しますか？</h3>
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => { if (!isDeleting) { setShowDeleteConfirm(false); setDeleteError('') } }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-modal-title"
+            className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="delete-modal-title" className="text-xl font-bold text-gray-800">牛を削除しますか？</h3>
             <p className="text-gray-600">
               <span className="font-bold">{cow.ear_tag}</span> の全ての記録が削除されます。この操作は取り消せません。
             </p>
             {deleteError && (
-              <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{deleteError}</p>
+              <p role="alert" className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{deleteError}</p>
             )}
             <div className="flex gap-3">
               <button
+                ref={cancelDeleteRef}
                 onClick={() => { setShowDeleteConfirm(false); setDeleteError('') }}
                 disabled={isDeleting}
                 className="flex-1 h-14 border-2 border-gray-300 rounded-xl font-bold text-gray-600 text-lg disabled:opacity-50"
@@ -352,7 +374,8 @@ function RecordEditForm({
         if (e1) throw e1
       }
 
-      // insemination_records を更新（既存があれば更新、なければ入力があった場合に新規作成）
+      // insemination_records：入力あり→更新or新規作成、既存を空に訂正→削除（取り消し）
+      const insemCleared = showInsemination && !!insemination && !inseminationDate
       if (showInsemination && inseminationDate) {
         if (insemination) {
           const { error: e2 } = await supabase.from('insemination_records').update({
@@ -370,28 +393,48 @@ function RecordEditForm({
           })
           if (e2) throw e2
         }
+      } else if (insemCleared) {
+        const { error: e2 } = await supabase.from('insemination_records').delete().eq('id', insemination!.id)
+        if (e2) throw e2
       }
 
-      // 修正後の値に基づいてステータスと次回予定日を再計算
+      // 初期値からの変更を検知（スキップ登録牛の未記録値を誤って遷移させないため）
+      const pregChanged = showPregnancy && pregnancyResult !== (event.pregnancy_result ?? null)
+      const calvingCleared = showCalving && !actualCalvingDate
+
+      // 修正後の値に基づいてステータスと次回予定日を再計算（明示的な変更があった場合のみ遷移）
       let nextStatus: CowStatus = cow.current_status as CowStatus
       let nextDate: string | null = cow.next_action_date
 
-      if (showCalving) {
-        // 分娩済み（サイクル完了）。分娩情報の修正ではステータスは変えない
-      } else if (showPregnancy && pregnancyResult !== null) {
-        // 妊娠鑑定結果の修正はステータス遷移を伴う
-        if (pregnancyResult) {
+      if (showCalving && actualCalvingDate) {
+        // 分娩済み（サイクル完了）。分娩情報の修正ではステータスは変えない（idleのまま）
+      } else if (calvingCleared) {
+        // 分娩日を空に訂正＝分娩の取り消し → 分娩待ちに戻す
+        nextStatus = 'calving_pending'
+        nextDate = expectedCalvingDate || event.expected_calving_date || null
+      } else if (pregChanged) {
+        // 妊娠鑑定結果を変更 → ステータス遷移
+        if (pregnancyResult === true) {
           nextStatus = 'calving_pending'
           nextDate = expectedCalvingDate || null
-        } else {
+        } else if (pregnancyResult === false) {
           nextStatus = 'estrus_pending'
-          // 鑑定日が未入力（スキップ登録の分娩待ち牛など）でも通知が途切れないよう当日基準でフォールバック
+          // 鑑定日未入力でも通知が途切れないよう当日基準でフォールバック
           nextDate = addDays(pregnancyCheckDate || getTodayStr(), 18)
+        } else {
+          // 未確定に戻す → 妊娠鑑定待ちへ
+          nextStatus = 'pregnancy_check_pending'
+          nextDate = inseminationDate ? addDays(inseminationDate, 30) : cow.next_action_date
         }
+      } else if (insemCleared) {
+        // 種付けの取り消し → 種付け待ち（発情記録済み）に戻す
+        nextStatus = 'inseminated'
+        nextDate = estrusDate ? addDays(estrusDate, 1) : cow.next_action_date
       } else {
-        // 鑑定前の段階：日付のみ再計算（ステータスは据え置き）
+        // ステータスを変える編集なし：現ステータスの予定日を入力値から再計算
         if (cow.current_status === 'inseminated' && estrusDate) nextDate = addDays(estrusDate, 1)
         else if (cow.current_status === 'pregnancy_check_pending' && inseminationDate) nextDate = addDays(inseminationDate, 30)
+        else if (cow.current_status === 'estrus_pending' && pregnancyCheckDate) nextDate = addDays(pregnancyCheckDate, 18)
       }
 
       const cowUpdate: { current_status?: CowStatus; next_action_date?: string | null } = {}
@@ -460,6 +503,12 @@ function RecordEditForm({
                 ❌ 陰性（空胎）
               </button>
             </div>
+            {pregnancyResult !== null && (
+              <button type="button" onClick={() => setPregnancyResult(null)}
+                className="mt-2 text-sm font-medium text-gray-500 underline">
+                未確定に戻す（鑑定待ちへ）
+              </button>
+            )}
           </div>
           {pregnancyResult === true && (
             <div>
@@ -499,7 +548,7 @@ function RecordEditForm({
       )}
 
       {error && (
-        <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{error}</p>
+        <p role="alert" className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{error}</p>
       )}
 
       <div className="fixed bottom-20 left-0 right-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-white border-t border-gray-200 flex gap-3">
@@ -596,7 +645,7 @@ function CowEditForm({ cow, onCancel, onSaved }: { cow: Cow; onCancel: () => voi
       </div>
 
       {error && (
-        <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{error}</p>
+        <p role="alert" className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{error}</p>
       )}
 
       <div className="fixed bottom-20 left-0 right-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-white border-t border-gray-200 flex gap-3">

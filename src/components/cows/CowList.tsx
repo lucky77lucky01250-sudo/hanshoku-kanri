@@ -41,14 +41,24 @@ export default function CowList({ initialCows }: { initialCows: Cow[] }) {
   return (
     <div className="px-4 pt-4">
       {/* 検索 */}
-      <div className="mb-3">
+      <div className="mb-3 relative">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="🔍 耳標番号・父牛・母牛で検索"
-          className="w-full h-12 px-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#1b4332]"
+          className="w-full h-12 px-4 pr-12 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#1b4332]"
         />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            aria-label="検索をクリア"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-gray-400 text-2xl rounded-full active:bg-gray-100"
+          >
+            ×
+          </button>
+        )}
       </div>
 
       {/* 並び替え */}
@@ -116,7 +126,7 @@ function CowCard({ cow }: { cow: Cow }) {
 
   return (
     <Link href={`/cows/${cow.id}`}>
-      <div className={`bg-white rounded-2xl border-2 ${status.borderColor} p-4 shadow-sm active:opacity-70 transition-opacity`}>
+      <div className={`bg-white rounded-2xl border-2 ${status.borderColor} p-4 shadow-sm active:opacity-70 active:scale-[0.98] transition-all`}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <p className="text-xl font-bold text-gray-900">{cow.ear_tag}</p>

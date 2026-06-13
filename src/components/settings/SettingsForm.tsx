@@ -180,7 +180,7 @@ export default function SettingsForm({
               {testing ? '送信中...' : '✉️ テストメールを送信'}
             </button>
             {testResult && (
-              <p className={`text-sm font-bold mt-2 p-3 rounded-xl border ${
+              <p role={testResult.ok ? 'status' : 'alert'} className={`text-sm font-bold mt-2 p-3 rounded-xl border ${
                 testResult.ok
                   ? 'text-green-700 bg-green-50 border-green-200'
                   : 'text-red-700 bg-red-50 border-red-200'
@@ -192,7 +192,7 @@ export default function SettingsForm({
         </div>
 
         {saveError && (
-          <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{saveError}</p>
+          <p role="alert" className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{saveError}</p>
         )}
 
         <button
@@ -214,7 +214,7 @@ export default function SettingsForm({
           {exporting ? '出力中...' : '📥 CSVでエクスポート'}
         </button>
         {exportError && (
-          <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{exportError}</p>
+          <p role="alert" className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{exportError}</p>
         )}
       </div>
 
