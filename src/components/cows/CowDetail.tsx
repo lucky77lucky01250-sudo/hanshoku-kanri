@@ -203,6 +203,16 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: Cycle[] }
             >
               ＋ 記録する
             </Link>
+
+            {/* 妊娠鑑定待ちの間に発情が戻った場合の再種付け導線 */}
+            {cow.current_status === 'pregnancy_check_pending' && (
+              <Link
+                href={`/cows/${cow.id}/record/insemination`}
+                className="mt-3 flex items-center justify-center w-full h-14 bg-white border-2 border-[#f4a261] text-[#c8762f] text-lg font-bold rounded-xl"
+              >
+                🔄 再種付けを記録
+              </Link>
+            )}
           </div>
 
           {/* 現在のサイクルの記録 */}
