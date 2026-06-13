@@ -17,16 +17,35 @@ function getTodayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function addDays(dateStr: string, days: number) {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function formatJa(dateStr: string) {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('ja-JP')
+}
+
 export default function CowNewForm() {
   const [earTag, setEarTag] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [fatherName, setFatherName] = useState('')
   const [motherName, setMotherName] = useState('')
   const [initialStatus, setInitialStatus] = useState<InitialStatus>('idle')
-  const [nextActionDate, setNextActionDate] = useState('')
+  const [inseminationDate, setInseminationDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+
+  // 授精日から予定日を自動算出（妊娠鑑定=+40日 / 分娩=+285日）
+  const scheduledDate = inseminationDate
+    ? (initialStatus === 'calving_pending'
+        ? addDays(inseminationDate, 285)
+        : initialStatus === 'pregnancy_check_pending'
+          ? addDays(inseminationDate, 40)
+          : '')
+    : ''
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,7 +64,7 @@ export default function CowNewForm() {
       father_name: fatherName.trim() || null,
       mother_name: motherName.trim() || null,
       current_status: initialStatus,
-      next_action_date: nextActionDate || null,
+      next_action_date: scheduledDate || null,
     }).select().single()
 
     if (cowErr || !cow) {
@@ -54,7 +73,7 @@ export default function CowNewForm() {
       return
     }
 
-    // スキップ: 待機中以外はサイクル＋イベントを作成して現在ステータスから開始
+    // スキップ: 待機中以外はサイクル＋イベント（＋授精記録）を作成して現在ステータスから開始
     if (initialStatus !== 'idle') {
       const { data: cycle, error: cycleErr } = await supabase
         .from('breeding_cycles')
@@ -75,16 +94,33 @@ export default function CowNewForm() {
         cow_id: cow.id,
         user_id: user.id,
       }
-      if (initialStatus === 'calving_pending' && nextActionDate) {
-        eventData.expected_calving_date = nextActionDate
+      // 分娩待ち＝妊娠確定済みなので陽性扱い＋分娩予定日（授精+285日）を保存
+      if (initialStatus === 'calving_pending') {
+        eventData.pregnancy_result = true
+        if (scheduledDate) eventData.expected_calving_date = scheduledDate
       }
       const { error: eventErr } = await supabase.from('breeding_events').insert(eventData)
       if (eventErr) {
-        // 牛を削除（cycle はCASCADEで一緒に消える）
-        await supabase.from('cows').delete().eq('id', cow.id)
+        await supabase.from('cows').delete().eq('id', cow.id) // cycle はCASCADEで一緒に消える
         setError('登録に失敗しました。もう一度お試しください。')
         setLoading(false)
         return
+      }
+
+      // 授精日が入力されていれば授精記録も作成（発情注意通知・予定日の再計算の基準になる）
+      if (inseminationDate) {
+        const { error: insemErr } = await supabase.from('insemination_records').insert({
+          cycle_id: cycle.id,
+          user_id: user.id,
+          insemination_date: inseminationDate,
+          attempt_number: 1,
+        })
+        if (insemErr) {
+          await supabase.from('cows').delete().eq('id', cow.id)
+          setError('登録に失敗しました。もう一度お試しください。')
+          setLoading(false)
+          return
+        }
       }
     }
 
@@ -152,7 +188,7 @@ export default function CowNewForm() {
               type="button"
               role="radio"
               aria-checked={initialStatus === opt.value}
-              onClick={() => { setInitialStatus(opt.value); setNextActionDate('') }}
+              onClick={() => { setInitialStatus(opt.value); setInseminationDate('') }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-colors ${
                 initialStatus === opt.value
                   ? 'bg-[#1b4332] text-white border-[#1b4332]'
@@ -168,30 +204,30 @@ export default function CowNewForm() {
         </div>
       </div>
 
-      {/* 分娩待ちの場合は分娩予定日を入力できる */}
-      {initialStatus === 'calving_pending' && (
+      {/* スキップ登録：授精日を入力すると予定日を自動算出 */}
+      {initialStatus !== 'idle' && (
         <div>
-          <label className="block text-base font-bold text-gray-700 mb-2">分娩予定日（任意）</label>
+          <label className="block text-base font-bold text-gray-700 mb-2">授精日（任意）</label>
           <input
             type="date"
-            value={nextActionDate}
-            onChange={(e) => setNextActionDate(e.target.value)}
-            min={getTodayStr()}
+            value={inseminationDate}
+            onChange={(e) => setInseminationDate(e.target.value)}
+            max={getTodayStr()}
             className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
           />
-        </div>
-      )}
-
-      {/* 妊娠鑑定待ちの場合は鑑定予定日 */}
-      {initialStatus === 'pregnancy_check_pending' && (
-        <div>
-          <label className="block text-base font-bold text-gray-700 mb-2">妊娠鑑定予定日（任意）</label>
-          <input
-            type="date"
-            value={nextActionDate}
-            onChange={(e) => setNextActionDate(e.target.value)}
-            className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
-          />
+          {scheduledDate ? (
+            <p className="mt-2 text-base font-bold text-[#1b4332] bg-green-50 border border-green-200 rounded-xl p-3">
+              {initialStatus === 'calving_pending'
+                ? `分娩予定日：${formatJa(scheduledDate)}（授精+285日で自動算出）`
+                : `妊娠鑑定予定日：${formatJa(scheduledDate)}（授精+40日で自動算出）`}
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-gray-500">
+              {initialStatus === 'calving_pending'
+                ? '授精日を入れると分娩予定日（授精+285日）を自動計算します'
+                : '授精日を入れると妊娠鑑定予定日（授精+40日）を自動計算します'}
+            </p>
+          )}
         </div>
       )}
 
