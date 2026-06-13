@@ -27,7 +27,7 @@ export default function CowList({ initialCows }: { initialCows: Cow[] }) {
       )
     })
     .sort((a, b) => {
-      if (sortKey === 'ear_tag') return a.ear_tag.localeCompare(b.ear_tag, 'ja')
+      if (sortKey === 'ear_tag') return a.ear_tag.localeCompare(b.ear_tag, 'ja', { numeric: true })
       if (sortKey === 'created') return (b.created_at ?? '').localeCompare(a.created_at ?? '')
       // next_action: 予定日が近い順。予定日なし（idle）は末尾。
       const ad = a.next_action_date

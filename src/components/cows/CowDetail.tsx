@@ -8,6 +8,12 @@ import type { Database, CowStatus } from '@/types/database'
 import { STATUS_CONFIG } from '@/lib/status'
 
 type Cow = Database['public']['Tables']['cows']['Row']
+type BreedingEvent = Database['public']['Tables']['breeding_events']['Row']
+type InseminationRecord = Database['public']['Tables']['insemination_records']['Row']
+type Cycle = Database['public']['Tables']['breeding_cycles']['Row'] & {
+  breeding_events: BreedingEvent[]
+  insemination_records: InseminationRecord[]
+}
 
 const STEPS = [
   { key: 'estrus', label: '発情確認', icon: '🔴' },
@@ -16,7 +22,7 @@ const STEPS = [
   { key: 'calving', label: '分娩', icon: '🟢' },
 ]
 
-export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) {
+export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: Cycle[] }) {
   const [tab, setTab] = useState<'current' | 'history'>('current')
   const [isEditing, setIsEditing] = useState(false)
   const [isEditingRecord, setIsEditingRecord] = useState(false)
@@ -30,8 +36,8 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
   const pastCycles = cycles.slice(1)
 
   const currentEvent = currentCycle?.breeding_events?.[0]
-  const latestInsemination = currentCycle?.insemination_records?.sort(
-    (a: any, b: any) => b.attempt_number - a.attempt_number
+  const latestInsemination = currentCycle?.insemination_records?.slice().sort(
+    (a, b) => b.attempt_number - a.attempt_number
   )[0]
 
   const nextEstrusDate = latestInsemination && !currentEvent?.pregnancy_result
@@ -221,10 +227,10 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
           {pastCycles.length === 0 ? (
             <p className="text-gray-400 text-center py-8">過去の記録はありません</p>
           ) : (
-            pastCycles.map((cycle: any) => {
+            pastCycles.map((cycle) => {
               const ev = cycle.breeding_events?.[0]
-              const insem = cycle.insemination_records?.sort(
-                (a: any, b: any) => b.attempt_number - a.attempt_number
+              const insem = cycle.insemination_records?.slice().sort(
+                (a, b) => b.attempt_number - a.attempt_number
               )[0]
               return (
                 <div key={cycle.id} className="bg-white rounded-2xl border-2 border-gray-100 p-4">
@@ -296,8 +302,8 @@ function RecordEditForm({
   cow, event, insemination, onCancel, onSaved,
 }: {
   cow: Cow
-  event: any
-  insemination: any
+  event: BreedingEvent
+  insemination: InseminationRecord | undefined
   onCancel: () => void
   onSaved: () => void
 }) {
@@ -640,7 +646,7 @@ function addDays(dateStr: string, days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function isStepActive(step: string, status: CowStatus, event: any, insemination: any): boolean {
+function isStepActive(step: string, status: CowStatus, event: BreedingEvent | undefined, insemination: InseminationRecord | undefined): boolean {
   if (step === 'estrus') return status === 'estrus_pending'
   if (step === 'insemination') return status === 'inseminated' || (!!event?.estrus_date && !insemination)
   if (step === 'pregnancy_check') return status === 'pregnancy_check_pending'
@@ -657,7 +663,7 @@ const STATUS_PASSED_STEPS: Record<CowStatus, string[]> = {
   calving_pending: ['estrus', 'insemination', 'pregnancy_check'],
 }
 
-function isStepDone(step: string, status: CowStatus, event: any, insemination: any): boolean {
+function isStepDone(step: string, status: CowStatus, event: BreedingEvent | undefined, insemination: InseminationRecord | undefined): boolean {
   // スキップ登録などで現在ステータスが先に進んでいる場合は完了扱い
   if (STATUS_PASSED_STEPS[status]?.includes(step)) return true
   if (!event) return false

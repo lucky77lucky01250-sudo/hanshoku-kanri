@@ -143,13 +143,15 @@ export default function CowNewForm() {
 
       {/* 現在のステータス（スキップ機能） */}
       <div>
-        <label className="block text-base font-bold text-gray-700 mb-1">現在のステータス</label>
-        <p className="text-sm text-gray-400 mb-3">購入した妊娠牛など、途中から開始する場合に変更してください</p>
-        <div className="space-y-2">
+        <label id="status-label" className="block text-base font-bold text-gray-700 mb-1">現在のステータス</label>
+        <p className="text-sm text-gray-500 mb-3">購入した妊娠牛など、途中から開始する場合に変更してください</p>
+        <div className="space-y-2" role="radiogroup" aria-labelledby="status-label">
           {STATUS_OPTIONS.map(opt => (
             <button
               key={opt.value}
               type="button"
+              role="radio"
+              aria-checked={initialStatus === opt.value}
               onClick={() => { setInitialStatus(opt.value); setNextActionDate('') }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-colors ${
                 initialStatus === opt.value
@@ -159,7 +161,7 @@ export default function CowNewForm() {
             >
               <div>
                 <p className="font-bold">{opt.label}</p>
-                <p className={`text-sm ${initialStatus === opt.value ? 'text-green-200' : 'text-gray-400'}`}>{opt.desc}</p>
+                <p className={`text-sm ${initialStatus === opt.value ? 'text-green-200' : 'text-gray-500'}`}>{opt.desc}</p>
               </div>
             </button>
           ))}
