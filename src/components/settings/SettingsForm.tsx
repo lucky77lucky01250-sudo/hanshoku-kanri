@@ -23,7 +23,30 @@ export default function SettingsForm({
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState('')
   const router = useRouter()
+
+  const handleTestNotify = async () => {
+    setTesting(true)
+    setTestResult('')
+    try {
+      const res = await fetch('/api/notify/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setTestResult(`✅ ${email} に送信しました。受信を確認してください。`)
+      } else {
+        setTestResult(`⚠️ 送信に失敗しました：${data.error ?? '不明なエラー'}`)
+      }
+    } catch {
+      setTestResult('⚠️ 送信に失敗しました。通信エラーです。')
+    }
+    setTesting(false)
+  }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,6 +148,20 @@ export default function SettingsForm({
           <div className="space-y-1">
             <ToggleRow label="7日前に通知" value={notify7} onChange={setNotify7} />
             <ToggleRow label="3日前に通知" value={notify3} onChange={setNotify3} />
+          </div>
+
+          <div className="pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={handleTestNotify}
+              disabled={testing}
+              className="w-full h-12 bg-white border-2 border-[#f4a261] text-[#c8762f] text-base font-bold rounded-xl disabled:opacity-50"
+            >
+              {testing ? '送信中...' : '✉️ テストメールを送信'}
+            </button>
+            {testResult && (
+              <p className="text-sm font-medium mt-2 text-gray-700">{testResult}</p>
+            )}
           </div>
         </div>
 

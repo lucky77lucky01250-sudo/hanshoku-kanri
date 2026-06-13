@@ -8,15 +8,63 @@ import { STATUS_CONFIG, getUrgencyLabel } from '@/lib/status'
 
 type Cow = Database['public']['Tables']['cows']['Row']
 
+type SortKey = 'next_action' | 'ear_tag' | 'created'
+
 export default function CowList({ initialCows }: { initialCows: Cow[] }) {
   const [filter, setFilter] = useState<'all' | 'action'>('all')
+  const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('next_action')
 
-  const filtered = filter === 'action'
-    ? initialCows.filter(c => c.current_status !== 'idle')
-    : initialCows
+  const query = search.trim().toLowerCase()
+  const filtered = initialCows
+    .filter(c => filter === 'action' ? c.current_status !== 'idle' : true)
+    .filter(c => {
+      if (!query) return true
+      return (
+        c.ear_tag.toLowerCase().includes(query) ||
+        (c.father_name?.toLowerCase().includes(query) ?? false) ||
+        (c.mother_name?.toLowerCase().includes(query) ?? false)
+      )
+    })
+    .sort((a, b) => {
+      if (sortKey === 'ear_tag') return a.ear_tag.localeCompare(b.ear_tag, 'ja')
+      if (sortKey === 'created') return (b.created_at ?? '').localeCompare(a.created_at ?? '')
+      // next_action: 予定日が近い順。予定日なし（idle）は末尾。
+      const ad = a.next_action_date
+      const bd = b.next_action_date
+      if (!ad && !bd) return 0
+      if (!ad) return 1
+      if (!bd) return -1
+      return ad.localeCompare(bd)
+    })
 
   return (
     <div className="px-4 pt-4">
+      {/* 検索 */}
+      <div className="mb-3">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="🔍 耳標番号・父牛・母牛で検索"
+          className="w-full h-12 px-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#1b4332]"
+        />
+      </div>
+
+      {/* 並び替え */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-sm text-gray-500 flex-shrink-0">並び替え</span>
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as SortKey)}
+          className="flex-1 h-11 px-3 text-base border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#1b4332]"
+        >
+          <option value="next_action">予定日が近い順</option>
+          <option value="ear_tag">耳標番号順</option>
+          <option value="created">登録が新しい順</option>
+        </select>
+      </div>
+
       {/* フィルタータブ */}
       <div className="flex gap-2 mb-4">
         <button
@@ -45,9 +93,11 @@ export default function CowList({ initialCows }: { initialCows: Cow[] }) {
         <div className="text-center py-16 text-gray-400">
           <div className="text-5xl mb-4">🐂</div>
           <p className="text-lg">
-            {filter === 'action' ? '対応が必要な牛はいません' : '牛が登録されていません'}
+            {query
+              ? '該当する牛が見つかりません'
+              : filter === 'action' ? '対応が必要な牛はいません' : '牛が登録されていません'}
           </p>
-          {filter === 'all' && (
+          {filter === 'all' && !query && (
             <p className="text-base mt-2">下の＋ボタンから登録してください</p>
           )}
         </div>

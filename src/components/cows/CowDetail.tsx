@@ -19,6 +19,7 @@ const STEPS = [
 export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) {
   const [tab, setTab] = useState<'current' | 'history'>('current')
   const [isEditing, setIsEditing] = useState(false)
+  const [isEditingRecord, setIsEditingRecord] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const router = useRouter()
 
@@ -48,6 +49,18 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
         cow={cow}
         onCancel={() => setIsEditing(false)}
         onSaved={() => { setIsEditing(false); router.refresh() }}
+      />
+    )
+  }
+
+  if (isEditingRecord && currentEvent) {
+    return (
+      <RecordEditForm
+        cow={cow}
+        event={currentEvent}
+        insemination={latestInsemination}
+        onCancel={() => setIsEditingRecord(false)}
+        onSaved={() => { setIsEditingRecord(false); router.refresh() }}
       />
     )
   }
@@ -159,7 +172,15 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
           {/* 現在のサイクルの記録 */}
           {currentEvent && (
             <div className="bg-white rounded-2xl border-2 border-gray-100 p-4 space-y-2">
-              <h3 className="font-bold text-gray-700">現在のサイクルの記録</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-gray-700">現在のサイクルの記録</h3>
+                <button
+                  onClick={() => setIsEditingRecord(true)}
+                  className="px-3 py-1 text-sm font-medium text-[#1b4332] border border-[#1b4332] rounded-lg"
+                >
+                  ✏️ 修正
+                </button>
+              </div>
               {currentEvent.estrus_date && <InfoRow label="発情確認日" value={formatDate(currentEvent.estrus_date)} />}
               {latestInsemination?.insemination_date && (
                 <>
@@ -191,17 +212,39 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
           {pastCycles.length === 0 ? (
             <p className="text-gray-400 text-center py-8">過去の記録はありません</p>
           ) : (
-            pastCycles.map((cycle: any) => (
-              <div key={cycle.id} className="bg-white rounded-2xl border-2 border-gray-100 p-4">
-                <p className="font-bold text-gray-700 mb-2">サイクル {cycle.cycle_number}</p>
-                {cycle.breeding_events?.[0] && (
-                  <div className="space-y-1 text-sm">
-                    {cycle.breeding_events[0].estrus_date && <InfoRow label="発情" value={formatDate(cycle.breeding_events[0].estrus_date)} />}
-                    {cycle.breeding_events[0].actual_calving_date && <InfoRow label="分娩" value={formatDate(cycle.breeding_events[0].actual_calving_date)} />}
+            pastCycles.map((cycle: any) => {
+              const ev = cycle.breeding_events?.[0]
+              const insem = cycle.insemination_records?.sort(
+                (a: any, b: any) => b.attempt_number - a.attempt_number
+              )[0]
+              return (
+                <div key={cycle.id} className="bg-white rounded-2xl border-2 border-gray-100 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-bold text-gray-700">サイクル {cycle.cycle_number}</p>
+                    {ev?.pregnancy_result != null && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ev.pregnancy_result ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {ev.pregnancy_result ? '妊娠' : '空胎'}
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
-            ))
+                  {ev ? (
+                    <div className="space-y-1 text-sm">
+                      {ev.estrus_date && <InfoRow label="発情確認日" value={formatDate(ev.estrus_date)} />}
+                      {insem?.insemination_date && <InfoRow label="種付け日" value={formatDate(insem.insemination_date)} />}
+                      {insem?.semen_name && <InfoRow label="使用精液" value={insem.semen_name} />}
+                      {insem && insem.attempt_number > 1 && <InfoRow label="種付け回数" value={`${insem.attempt_number}回`} />}
+                      {ev.pregnancy_check_date && <InfoRow label="妊娠鑑定日" value={formatDate(ev.pregnancy_check_date)} />}
+                      {ev.expected_calving_date && <InfoRow label="分娩予定日" value={formatDate(ev.expected_calving_date)} />}
+                      {ev.actual_calving_date && <InfoRow label="分娩日" value={formatDate(ev.actual_calving_date)} />}
+                      {ev.calf_gender && <InfoRow label="子牛性別" value={ev.calf_gender === 'male' ? '♂ オス' : '♀ メス'} />}
+                      {ev.calf_weight && <InfoRow label="子牛体重" value={`${ev.calf_weight} kg`} />}
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-sm">記録なし</p>
+                  )}
+                </div>
+              )
+            })
           )}
         </div>
       )}
@@ -232,6 +275,214 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: any[] }) 
         </div>
       )}
     </div>
+  )
+}
+
+function RecordEditForm({
+  cow, event, insemination, onCancel, onSaved,
+}: {
+  cow: Cow
+  event: any
+  insemination: any
+  onCancel: () => void
+  onSaved: () => void
+}) {
+  const [estrusDate, setEstrusDate] = useState(event.estrus_date ?? '')
+  const [inseminationDate, setInseminationDate] = useState(insemination?.insemination_date ?? '')
+  const [semenName, setSemenName] = useState(insemination?.semen_name ?? '')
+  const [pregnancyCheckDate, setPregnancyCheckDate] = useState(event.pregnancy_check_date ?? '')
+  const [pregnancyResult, setPregnancyResult] = useState<boolean | null>(event.pregnancy_result ?? null)
+  const [expectedCalvingDate, setExpectedCalvingDate] = useState(event.expected_calving_date ?? '')
+  const [actualCalvingDate, setActualCalvingDate] = useState(event.actual_calving_date ?? '')
+  const [calfGender, setCalfGender] = useState(event.calf_gender ?? '')
+  const [calfWeight, setCalfWeight] = useState(event.calf_weight != null ? String(event.calf_weight) : '')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  // 現在のステータスまでに通過したステップは、未記録（スキップ登録）でも編集対象にする
+  const passed = STATUS_PASSED_STEPS[cow.current_status as CowStatus] ?? []
+  const showEstrus = event.estrus_date != null || passed.includes('estrus')
+  const showInsemination = !!insemination || passed.includes('insemination')
+  const showPregnancy = !!event.pregnancy_check_date || passed.includes('pregnancy_check')
+  const showCalving = !!event.actual_calving_date
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    const supabase = createClient()
+
+    try {
+      // breeding_events を更新
+      const eventUpdate: Record<string, unknown> = {}
+      if (showEstrus) eventUpdate.estrus_date = estrusDate || null
+      if (showPregnancy) {
+        eventUpdate.pregnancy_check_date = pregnancyCheckDate || null
+        eventUpdate.pregnancy_result = pregnancyResult
+        eventUpdate.expected_calving_date = expectedCalvingDate || null
+      }
+      if (showCalving) {
+        eventUpdate.actual_calving_date = actualCalvingDate || null
+        eventUpdate.calf_gender = calfGender || null
+        eventUpdate.calf_weight = calfWeight ? parseFloat(calfWeight) : null
+      }
+      if (Object.keys(eventUpdate).length > 0) {
+        const { error: e1 } = await supabase.from('breeding_events').update(eventUpdate).eq('id', event.id)
+        if (e1) throw e1
+      }
+
+      // insemination_records を更新（既存があれば更新、なければ入力があった場合に新規作成）
+      if (showInsemination && inseminationDate) {
+        if (insemination) {
+          const { error: e2 } = await supabase.from('insemination_records').update({
+            insemination_date: inseminationDate,
+            semen_name: semenName || null,
+          }).eq('id', insemination.id)
+          if (e2) throw e2
+        } else {
+          const { error: e2 } = await supabase.from('insemination_records').insert({
+            cycle_id: event.cycle_id,
+            user_id: cow.user_id,
+            insemination_date: inseminationDate,
+            semen_name: semenName || null,
+            attempt_number: 1,
+          })
+          if (e2) throw e2
+        }
+      }
+
+      // 現在ステータスに応じて次回予定日を再計算
+      let nextDate: string | null = cow.next_action_date
+      switch (cow.current_status) {
+        case 'inseminated':
+          if (estrusDate) nextDate = addDays(estrusDate, 1)
+          break
+        case 'pregnancy_check_pending':
+          if (inseminationDate) nextDate = addDays(inseminationDate, 30)
+          break
+        case 'calving_pending':
+          nextDate = expectedCalvingDate || null
+          break
+        case 'estrus_pending':
+          if (pregnancyCheckDate) nextDate = addDays(pregnancyCheckDate, 18)
+          break
+      }
+      if (nextDate !== cow.next_action_date) {
+        const { error: e3 } = await supabase.from('cows').update({ next_action_date: nextDate }).eq('id', cow.id)
+        if (e3) throw e3
+      }
+
+      onSaved()
+    } catch {
+      setError('修正の保存に失敗しました。もう一度お試しください。')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const inputCls = 'w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]'
+
+  return (
+    <form onSubmit={handleSubmit} className="px-4 py-4 space-y-6 pb-28">
+      <h2 className="text-lg font-bold text-gray-700">記録を修正</h2>
+
+      {!showEstrus && !showInsemination && !showPregnancy && !showCalving && (
+        <p className="text-gray-500 text-base bg-gray-50 p-4 rounded-xl">
+          まだ修正できる記録がありません。「記録する」から記録を追加してください。
+        </p>
+      )}
+
+      {showEstrus && (
+        <div>
+          <label className="block text-base font-bold text-gray-700 mb-2">発情確認日</label>
+          <input type="date" value={estrusDate} onChange={(e) => setEstrusDate(e.target.value)} className={inputCls} />
+        </div>
+      )}
+
+      {showInsemination && (
+        <>
+          <div>
+            <label className="block text-base font-bold text-gray-700 mb-2">種付け日</label>
+            <input type="date" value={inseminationDate} onChange={(e) => setInseminationDate(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-base font-bold text-gray-700 mb-2">使用精液</label>
+            <input type="text" value={semenName} onChange={(e) => setSemenName(e.target.value)} className={inputCls} placeholder="精液名（任意）" />
+          </div>
+        </>
+      )}
+
+      {showPregnancy && (
+        <>
+          <div>
+            <label className="block text-base font-bold text-gray-700 mb-2">妊娠鑑定日</label>
+            <input type="date" value={pregnancyCheckDate} onChange={(e) => setPregnancyCheckDate(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-base font-bold text-gray-700 mb-3">鑑定結果</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => setPregnancyResult(true)}
+                className={`h-16 rounded-xl font-bold text-lg border-2 transition-colors ${pregnancyResult === true ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200'}`}>
+                ✅ 陽性（妊娠）
+              </button>
+              <button type="button" onClick={() => setPregnancyResult(false)}
+                className={`h-16 rounded-xl font-bold text-lg border-2 transition-colors ${pregnancyResult === false ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-200'}`}>
+                ❌ 陰性（空胎）
+              </button>
+            </div>
+          </div>
+          {pregnancyResult === true && (
+            <div>
+              <label className="block text-base font-bold text-gray-700 mb-2">分娩予定日</label>
+              <input type="date" value={expectedCalvingDate} onChange={(e) => setExpectedCalvingDate(e.target.value)} className={inputCls} />
+            </div>
+          )}
+        </>
+      )}
+
+      {showCalving && (
+        <>
+          <div>
+            <label className="block text-base font-bold text-gray-700 mb-2">分娩日</label>
+            <input type="date" value={actualCalvingDate} onChange={(e) => setActualCalvingDate(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-base font-bold text-gray-700 mb-3">子牛の性別</label>
+            <div className="grid grid-cols-2 gap-3">
+              {[{ val: 'male', label: '♂ オス' }, { val: 'female', label: '♀ メス' }].map(({ val, label }) => (
+                <button key={val} type="button" onClick={() => setCalfGender(val)}
+                  className={`h-14 rounded-xl font-bold text-lg border-2 transition-colors ${calfGender === val ? 'bg-[#1b4332] text-white border-[#1b4332]' : 'bg-white text-gray-600 border-gray-200'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-base font-bold text-gray-700 mb-2">子牛体重</label>
+            <div className="relative">
+              <input type="number" step="0.1" value={calfWeight} onChange={(e) => setCalfWeight(e.target.value)}
+                className={`${inputCls} pr-12`} placeholder="例: 32.5" />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">kg</span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {error && (
+        <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{error}</p>
+      )}
+
+      <div className="fixed bottom-20 left-0 right-0 p-4 bg-white border-t border-gray-200 flex gap-3">
+        <button type="button" onClick={onCancel}
+          className="flex-1 h-14 border-2 border-gray-300 rounded-xl font-bold text-gray-600 text-lg">
+          キャンセル
+        </button>
+        <button type="submit" disabled={loading}
+          className="flex-1 h-14 bg-[#1b4332] text-white text-lg font-bold rounded-xl disabled:opacity-50">
+          {loading ? '保存中...' : '保存する'}
+        </button>
+      </div>
+    </form>
   )
 }
 
