@@ -25,6 +25,8 @@ export default function SettingsForm({
   const [saveError, setSaveError] = useState('')
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
   const router = useRouter()
 
   const handleTestNotify = async () => {
@@ -54,11 +56,10 @@ export default function SettingsForm({
     setSaveError('')
 
     const supabase = createClient()
-    const payload = { user_id: userId, email, notify_7days: notify7, notify_3days: notify3 }
-
-    const { error } = initialSettings
-      ? await supabase.from('notification_settings').update({ email, notify_7days: notify7, notify_3days: notify3 }).eq('user_id', userId)
-      : await supabase.from('notification_settings').insert(payload)
+    // user_id にUNIQUE制約があるため upsert で統一（別タブ等での二重作成による一意制約違反を回避）
+    const { error } = await supabase
+      .from('notification_settings')
+      .upsert({ user_id: userId, email, notify_7days: notify7, notify_3days: notify3 }, { onConflict: 'user_id' })
 
     if (error) {
       setSaveError('設定の保存に失敗しました。もう一度お試しください。')
@@ -70,13 +71,31 @@ export default function SettingsForm({
   }
 
   const handleExportCSV = async () => {
+    setExporting(true)
+    setExportError('')
     const supabase = createClient()
 
     // サイクル情報も取得して精液を正しく紐付ける
-    const { data: cows } = await supabase.from('cows').select('*').eq('user_id', userId)
-    const { data: cycles } = await supabase.from('breeding_cycles').select('*').eq('user_id', userId)
-    const { data: events } = await supabase.from('breeding_events').select('*').eq('user_id', userId)
-    const { data: inseminations } = await supabase.from('insemination_records').select('*').eq('user_id', userId)
+    const [cowsRes, eventsRes, insemRes] = await Promise.all([
+      supabase.from('cows').select('*').eq('user_id', userId),
+      supabase.from('breeding_events').select('*').eq('user_id', userId),
+      supabase.from('insemination_records').select('*').eq('user_id', userId),
+    ])
+
+    if (cowsRes.error || eventsRes.error || insemRes.error) {
+      setExportError('エクスポートに失敗しました。通信環境を確認してもう一度お試しください。')
+      setExporting(false)
+      return
+    }
+    const cows = cowsRes.data
+    const events = eventsRes.data
+    const inseminations = insemRes.data
+
+    if (!cows || cows.length === 0) {
+      setExportError('エクスポートできる牛の記録がありません。')
+      setExporting(false)
+      return
+    }
 
     const rows = [
       ['耳標番号', '生年月日', '父牛名', '母牛名', '発情確認日', '種付け日', '使用精液', '妊娠鑑定日', '妊娠結果', '分娩予定日', '分娩日', '子牛性別', '子牛体重'],
@@ -120,6 +139,7 @@ export default function SettingsForm({
     a.download = `繁殖記録_${new Date().toLocaleDateString('ja-JP').replace(/\//g, '-')}.csv`
     a.click()
     URL.revokeObjectURL(url)
+    setExporting(false)
   }
 
   const handleLogout = async () => {
@@ -188,10 +208,14 @@ export default function SettingsForm({
         <h2 className="text-lg font-bold text-gray-700">データ</h2>
         <button
           onClick={handleExportCSV}
-          className="w-full h-14 bg-white border-2 border-[#1b4332] text-[#1b4332] text-lg font-bold rounded-xl"
+          disabled={exporting}
+          className="w-full h-14 bg-white border-2 border-[#1b4332] text-[#1b4332] text-lg font-bold rounded-xl disabled:opacity-50"
         >
-          📥 CSVでエクスポート
+          {exporting ? '出力中...' : '📥 CSVでエクスポート'}
         </button>
+        {exportError && (
+          <p className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{exportError}</p>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl border-2 border-gray-100 p-4">

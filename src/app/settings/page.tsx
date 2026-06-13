@@ -15,7 +15,7 @@ export default async function SettingsPage() {
     .single()
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-[calc(6rem+env(safe-area-inset-bottom))]">
       <header className="bg-[#1b4332] text-white px-4 py-5 flex items-center gap-3">
         <Link href="/cows" className="text-white">
           <ChevronLeft size={28} />

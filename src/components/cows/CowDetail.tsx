@@ -339,7 +339,8 @@ function RecordEditForm({
       if (showPregnancy) {
         eventUpdate.pregnancy_check_date = pregnancyCheckDate || null
         eventUpdate.pregnancy_result = pregnancyResult
-        eventUpdate.expected_calving_date = expectedCalvingDate || null
+        // 陰性（または未確定）なら分娩予定日は持たない＝過去の値が残らないよう明示的にクリア
+        eventUpdate.expected_calving_date = pregnancyResult ? (expectedCalvingDate || null) : null
       }
       if (showCalving) {
         eventUpdate.actual_calving_date = actualCalvingDate || null
@@ -384,7 +385,8 @@ function RecordEditForm({
           nextDate = expectedCalvingDate || null
         } else {
           nextStatus = 'estrus_pending'
-          nextDate = pregnancyCheckDate ? addDays(pregnancyCheckDate, 18) : null
+          // 鑑定日が未入力（スキップ登録の分娩待ち牛など）でも通知が途切れないよう当日基準でフォールバック
+          nextDate = addDays(pregnancyCheckDate || getTodayStr(), 18)
         }
       } else {
         // 鑑定前の段階：日付のみ再計算（ステータスは据え置き）
@@ -643,6 +645,11 @@ function addDays(dateStr: string, days: number): string {
   // ローカル0時基準でパースし、TZによる1日ずれを防ぐ（他ファイルと統一）
   const d = new Date(dateStr + 'T00:00:00')
   d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function getTodayStr(): string {
+  const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
