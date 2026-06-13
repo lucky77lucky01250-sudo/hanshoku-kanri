@@ -22,17 +22,21 @@ function addDays(dateStr: string, days: number) {
 }
 
 export default function RecordForm({
-  cowId, step, pastSemen,
+  cowId, step, pastSemen, inseminationDate,
 }: {
   cowId: string
   step: string
   pastSemen: string[]
+  inseminationDate?: string | null
 }) {
   const [date, setDate] = useState(getTodayStr())
   const [semenName, setSemenName] = useState('')
   const [semenInput, setSemenInput] = useState('')
   const [pregnancyResult, setPregnancyResult] = useState<boolean | null>(null)
-  const [expectedCalvingDate, setExpectedCalvingDate] = useState('')
+  // 妊娠確定時の分娩予定日は「授精+285日」を初期値にする（手修正も可）
+  const [expectedCalvingDate, setExpectedCalvingDate] = useState(
+    inseminationDate ? addDays(inseminationDate, 285) : ''
+  )
   const [calfGender, setCalfGender] = useState('')
   const [calfWeight, setCalfWeight] = useState('')
   const [loading, setLoading] = useState(false)
@@ -108,7 +112,7 @@ export default function RecordForm({
         })
         await supabase.from('cows').update({
           current_status: 'pregnancy_check_pending',
-          next_action_date: addDays(date, 30),
+          next_action_date: addDays(date, 40),
         }).eq('id', cowId)
 
       } else if (step === 'pregnancy_check') {
@@ -137,7 +141,7 @@ export default function RecordForm({
         } else {
           await supabase.from('cows').update({
             current_status: 'estrus_pending',
-            next_action_date: addDays(date, 18),
+            next_action_date: addDays(date, 21),
           }).eq('id', cowId)
         }
 
@@ -275,7 +279,7 @@ export default function RecordForm({
           </div>
           {pregnancyResult === true && (
             <div>
-              <label className="block text-base font-bold text-gray-700 mb-2">分娩予定日（任意）</label>
+              <label className="block text-base font-bold text-gray-700 mb-2">分娩予定日（授精+285日で自動入力・修正可）</label>
               <input
                 type="date"
                 value={expectedCalvingDate}

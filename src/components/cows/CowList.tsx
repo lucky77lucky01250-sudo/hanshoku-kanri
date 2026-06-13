@@ -10,7 +10,7 @@ type Cow = Database['public']['Tables']['cows']['Row']
 
 type SortKey = 'next_action' | 'ear_tag' | 'created'
 
-export default function CowList({ initialCows }: { initialCows: Cow[] }) {
+export default function CowList({ initialCows, lastCalvingByCow = {} }: { initialCows: Cow[]; lastCalvingByCow?: Record<string, string> }) {
   const [filter, setFilter] = useState<'all' | 'action'>('all')
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('next_action')
@@ -113,16 +113,17 @@ export default function CowList({ initialCows }: { initialCows: Cow[] }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(cow => <CowCard key={cow.id} cow={cow} />)}
+          {filtered.map(cow => <CowCard key={cow.id} cow={cow} lastCalving={lastCalvingByCow[cow.id]} />)}
         </div>
       )}
     </div>
   )
 }
 
-function CowCard({ cow }: { cow: Cow }) {
+function CowCard({ cow, lastCalving }: { cow: Cow; lastCalving?: string }) {
   const status = STATUS_CONFIG[cow.current_status as CowStatus]
   const urgency = getUrgencyLabel(cow.next_action_date)
+  const daysSinceCalving = cow.current_status === 'idle' && lastCalving ? daysSince(lastCalving) : null
 
   return (
     <Link href={`/cows/${cow.id}`}>
@@ -161,7 +162,21 @@ function CowCard({ cow }: { cow: Cow }) {
             </span>
           </div>
         )}
+
+        {daysSinceCalving !== null && (
+          <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+            <span>🍼</span>
+            <span>分娩後 {daysSinceCalving}日</span>
+          </div>
+        )}
       </div>
     </Link>
   )
+}
+
+function daysSince(dateStr: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const target = new Date(dateStr + 'T00:00:00')
+  return Math.floor((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24))
 }

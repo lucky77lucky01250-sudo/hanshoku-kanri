@@ -66,6 +66,26 @@ export async function GET(request: Request) {
 
       if (!cows || cows.length === 0) continue
 
+      // 牛ごとの最新の授精日を割り出す（発情注意の起点に使う）
+      const { data: cycles } = await supabase
+        .from('breeding_cycles')
+        .select('id, cow_id, cycle_number')
+        .eq('user_id', userId)
+      const { data: inseminations } = await supabase
+        .from('insemination_records')
+        .select('cycle_id, insemination_date, attempt_number')
+        .eq('user_id', userId)
+
+      const latestInsemByCow = new Map<string, string>()
+      for (const cow of cows) {
+        const cowCycles = (cycles ?? []).filter(c => c.cow_id === cow.id)
+        const latestCycle = cowCycles.sort((a, b) => b.cycle_number - a.cycle_number)[0]
+        if (!latestCycle) continue
+        const cowInsem = (inseminations ?? []).filter(i => i.cycle_id === latestCycle.id)
+        const latest = cowInsem.sort((a, b) => b.attempt_number - a.attempt_number)[0]
+        if (latest?.insemination_date) latestInsemByCow.set(cow.id, latest.insemination_date)
+      }
+
       for (const cow of cows) {
         // 通知対象のイベントを収集
         const notifications: { type: string; date: string; daysUntil: number }[] = []
@@ -86,6 +106,16 @@ export async function GET(request: Request) {
           }
         }
 
+        // 発情注意の通知（授精+21日付近。受胎していなければ発情が来るため観察を促す）
+        // 妊娠鑑定待ちの間に、授精日から21日後の前後を知らせる（3日前と当日）
+        if (cow.current_status === 'pregnancy_check_pending' && latestInsemByCow.has(cow.id)) {
+          const estrusWatchDate = addDays(latestInsemByCow.get(cow.id)!, 21)
+          const days = diffDays(estrusWatchDate)
+          if ((setting.notify_3days && days === 3) || days === 0) {
+            notifications.push({ type: '発情注意', date: estrusWatchDate, daysUntil: days })
+          }
+        }
+
         // 次回発情予定日の通知（種付け済み・未鑑定の場合）
         if (cow.current_status === 'estrus_pending' && cow.next_action_date) {
           const days = diffDays(cow.next_action_date)
@@ -96,6 +126,8 @@ export async function GET(request: Request) {
 
         for (const notif of notifications) {
           const notifType = `${notif.type}_${notif.daysUntil}days`
+          // 「3日前です」「本日です」のように当日も自然な文面にする
+          const whenLabel = notif.daysUntil === 0 ? '本日です' : `${notif.daysUntil}日前です`
 
           // 重複送信チェック（notification_logs）
           const { data: existing } = await supabase
@@ -112,13 +144,13 @@ export async function GET(request: Request) {
           const { error: mailErr } = await resend.emails.send({
             from: '繁殖牛管理 <noreply@ryuoshida.com>',
             to: notifyEmail,
-            subject: `【繁殖牛管理】${cow.ear_tag} の${notif.type}まで${notif.daysUntil}日前です`,
+            subject: `【繁殖牛管理】${cow.ear_tag} の${notif.type}が${whenLabel}`,
             html: `
               <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
                 <h2 style="color: #1b4332;">🐂 繁殖牛管理 お知らせ</h2>
                 <div style="background: #f0fdf4; border-left: 4px solid #1b4332; padding: 16px; border-radius: 8px; margin: 16px 0;">
                   <p style="font-size: 18px; font-weight: bold; margin: 0;">
-                    ${cow.ear_tag} の<strong>${notif.type}</strong>まで<strong>${notif.daysUntil}日</strong>です
+                    ${cow.ear_tag} の<strong>${notif.type}</strong>が<strong>${whenLabel}</strong>
                   </p>
                   <p style="color: #555; margin: 8px 0 0;">
                     予定日：${formatDate(notif.date)}

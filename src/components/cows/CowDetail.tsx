@@ -56,6 +56,10 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: Cycle[] }
     ? addDays(latestInsemination.insemination_date, 21)
     : null
 
+  // 産後日数：直近サイクルに分娩日があれば「分娩後○日」を算出
+  const lastCalvingDate = currentEvent?.actual_calving_date ?? null
+  const daysSinceCalving = lastCalvingDate ? daysSince(lastCalvingDate) : null
+
   const handleDelete = async () => {
     setIsDeleting(true)
     setDeleteError('')
@@ -128,6 +132,11 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: Cycle[] }
           {cow.next_action_date && (
             <p className="text-sm text-gray-600">
               予定日: {new Date(cow.next_action_date).toLocaleDateString('ja-JP')}
+            </p>
+          )}
+          {cow.current_status === 'idle' && daysSinceCalving !== null && (
+            <p className="text-sm text-gray-600">
+              分娩後 {daysSinceCalving}日（{new Date(lastCalvingDate!).toLocaleDateString('ja-JP')} 分娩）
             </p>
           )}
         </div>
@@ -420,11 +429,11 @@ function RecordEditForm({
         } else if (pregnancyResult === false) {
           nextStatus = 'estrus_pending'
           // 鑑定日未入力でも通知が途切れないよう当日基準でフォールバック
-          nextDate = addDays(pregnancyCheckDate || getTodayStr(), 18)
+          nextDate = addDays(pregnancyCheckDate || getTodayStr(), 21)
         } else {
           // 未確定に戻す → 妊娠鑑定待ちへ
           nextStatus = 'pregnancy_check_pending'
-          nextDate = inseminationDate ? addDays(inseminationDate, 30) : cow.next_action_date
+          nextDate = inseminationDate ? addDays(inseminationDate, 40) : cow.next_action_date
         }
       } else if (insemCleared) {
         // 種付けの取り消し → 種付け待ち（発情記録済み）に戻す
@@ -433,8 +442,8 @@ function RecordEditForm({
       } else {
         // ステータスを変える編集なし：現ステータスの予定日を入力値から再計算
         if (cow.current_status === 'inseminated' && estrusDate) nextDate = addDays(estrusDate, 1)
-        else if (cow.current_status === 'pregnancy_check_pending' && inseminationDate) nextDate = addDays(inseminationDate, 30)
-        else if (cow.current_status === 'estrus_pending' && pregnancyCheckDate) nextDate = addDays(pregnancyCheckDate, 18)
+        else if (cow.current_status === 'pregnancy_check_pending' && inseminationDate) nextDate = addDays(inseminationDate, 40)
+        else if (cow.current_status === 'estrus_pending' && pregnancyCheckDate) nextDate = addDays(pregnancyCheckDate, 21)
       }
 
       const cowUpdate: { current_status?: CowStatus; next_action_date?: string | null } = {}
@@ -700,6 +709,13 @@ function addDays(dateStr: string, days: number): string {
 function getTodayStr(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function daysSince(dateStr: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const target = new Date(dateStr + 'T00:00:00')
+  return Math.floor((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24))
 }
 
 function isStepActive(step: string, status: CowStatus, event: BreedingEvent | undefined, insemination: InseminationRecord | undefined): boolean {

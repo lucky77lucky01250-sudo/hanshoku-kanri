@@ -44,6 +44,20 @@ export default async function RecordPage({
   const allSemen = (pastSemen ?? []).map((s: { semen_name: string | null }) => s.semen_name).filter((v): v is string => !!v)
   const uniqueSemen = allSemen.filter((v, i, arr) => arr.indexOf(v) === i)
 
+  // 妊娠鑑定の分娩予定日プレフィル用：現在サイクルの最新の授精日を取得
+  let latestInseminationDate: string | null = null
+  if (step === 'pregnancy_check') {
+    const { data: cycle } = await supabase
+      .from('breeding_cycles')
+      .select('id, insemination_records(insemination_date, attempt_number)')
+      .eq('cow_id', id)
+      .order('cycle_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const records = (cycle?.insemination_records ?? []) as { insemination_date: string; attempt_number: number }[]
+    latestInseminationDate = records.sort((a, b) => b.attempt_number - a.attempt_number)[0]?.insemination_date ?? null
+  }
+
   return (
     <div>
       <header className="bg-[#1b4332] text-white px-4 py-5 flex items-center gap-3">
@@ -56,7 +70,7 @@ export default async function RecordPage({
         </div>
       </header>
       <div className="px-4 py-6">
-        <RecordForm cowId={id} step={step} pastSemen={uniqueSemen as string[]} />
+        <RecordForm cowId={id} step={step} pastSemen={uniqueSemen as string[]} inseminationDate={latestInseminationDate} />
       </div>
     </div>
   )
