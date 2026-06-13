@@ -128,23 +128,9 @@ function CowCard({ cow, lastCalving }: { cow: Cow; lastCalving?: string }) {
   return (
     <Link href={`/cows/${cow.id}`}>
       <div className={`bg-white rounded-2xl border-2 ${status.borderColor} p-4 shadow-sm active:opacity-70 active:scale-[0.98] transition-all`}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1">
-            <p className="text-xl font-bold text-gray-900">{cow.ear_tag}</p>
-            {cow.birth_date && (
-              <p className="text-sm text-gray-600 mt-0.5">
-                生年月日: {new Date(cow.birth_date).toLocaleDateString('ja-JP')}
-              </p>
-            )}
-            {(cow.father_name || cow.mother_name) && (
-              <p className="text-sm text-gray-600 mt-0.5">
-                {cow.father_name && <span>父: {cow.father_name}</span>}
-                {cow.father_name && cow.mother_name && <span className="mx-1.5 text-gray-300">/</span>}
-                {cow.mother_name && <span>母: {cow.mother_name}</span>}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xl font-bold text-gray-900">{cow.ear_tag}</p>
+          <div className="flex items-center gap-2 flex-shrink-0">
             <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${status.bgColor}`}>
               <span role="img" aria-label={status.label}>{status.icon}</span>
               <span className={`text-base font-bold ${status.color}`}>{status.label}</span>
@@ -152,6 +138,19 @@ function CowCard({ cow, lastCalving }: { cow: Cow; lastCalving?: string }) {
             <ChevronRight size={20} className="text-gray-400 flex-shrink-0" />
           </div>
         </div>
+
+        {cow.birth_date && (
+          <p className="text-sm text-gray-600 mt-1">
+            生年月日: {new Date(cow.birth_date).toLocaleDateString('ja-JP')}
+          </p>
+        )}
+        {(cow.father_name || cow.mother_name) && (
+          <p className="text-sm text-gray-600 mt-0.5 truncate">
+            {cow.father_name && <span>父: {cow.father_name}</span>}
+            {cow.father_name && cow.mother_name && <span className="mx-1.5 text-gray-300">/</span>}
+            {cow.mother_name && <span>母: {cow.mother_name}</span>}
+          </p>
+        )}
 
         {cow.next_action_date && urgency && (
           <div className={`mt-3 flex items-center gap-2 text-sm ${urgency.urgent ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
