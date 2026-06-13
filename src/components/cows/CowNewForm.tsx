@@ -27,7 +27,7 @@ function formatJa(dateStr: string) {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('ja-JP')
 }
 
-export default function CowNewForm() {
+export default function CowNewForm({ pastFathers = [] }: { pastFathers?: string[] }) {
   const [earTag, setEarTag] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [fatherName, setFatherName] = useState('')
@@ -157,6 +157,24 @@ export default function CowNewForm() {
 
       <div>
         <label className="block text-base font-bold text-gray-700 mb-2">父牛名</label>
+        {pastFathers.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {pastFathers.map(f => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFatherName(f)}
+                className={`h-12 px-4 rounded-xl border-2 text-base font-medium transition-colors ${
+                  fatherName === f
+                    ? 'bg-[#1b4332] text-white border-[#1b4332]'
+                    : 'bg-white text-gray-600 border-gray-200'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        )}
         <input
           type="text"
           value={fatherName}
