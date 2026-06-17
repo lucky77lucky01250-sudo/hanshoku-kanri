@@ -729,8 +729,12 @@ function daysSince(dateStr: string): number {
 }
 
 function isStepActive(step: string, status: CowStatus, event: BreedingEvent | undefined, insemination: InseminationRecord | undefined): boolean {
-  if (step === 'estrus') return status === 'estrus_pending'
-  if (step === 'insemination') return status === 'inseminated' || (!!event?.estrus_date && !insemination)
+  // 種付け待ち(inseminated)でも発情確認日が未記入なら、現在地は発情確認のまま
+  if (step === 'estrus') return status === 'estrus_pending' || (status === 'inseminated' && !event?.estrus_date)
+  if (step === 'insemination') {
+    if (status === 'inseminated') return !!event?.estrus_date
+    return !!event?.estrus_date && !insemination
+  }
   if (step === 'pregnancy_check') return status === 'pregnancy_check_pending'
   if (step === 'calving') return status === 'calving_pending'
   return false
@@ -746,6 +750,8 @@ const STATUS_PASSED_STEPS: Record<CowStatus, string[]> = {
 }
 
 function isStepDone(step: string, status: CowStatus, event: BreedingEvent | undefined, insemination: InseminationRecord | undefined): boolean {
+  // 種付け待ち(inseminated)の発情確認は実データに従う（日付未記入なら未完了＝現在地に戻す）
+  if (step === 'estrus' && status === 'inseminated') return !!event?.estrus_date
   // スキップ登録などで現在ステータスが先に進んでいる場合は完了扱い
   if (STATUS_PASSED_STEPS[status]?.includes(step)) return true
   if (!event) return false
