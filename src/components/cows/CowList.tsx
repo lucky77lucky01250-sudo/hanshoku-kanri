@@ -10,13 +10,13 @@ type Cow = Database['public']['Tables']['cows']['Row']
 
 type SortKey = 'cycle' | 'next_action' | 'ear_tag' | 'created'
 
-// 繁殖サイクルの段階順（発情確認→種付け→妊娠鑑定→分娩）。待機中は末尾。
+// 繁殖サイクルの段階順。待機中（サイクル開始前）を先頭に。
 const CYCLE_ORDER: Record<string, number> = {
+  idle: 0,                  // 待機中
   estrus_pending: 1,        // 発情確認待ち
   inseminated: 2,           // 種付け待ち
   pregnancy_check_pending: 3, // 妊娠鑑定待ち
   calving_pending: 4,       // 分娩待ち
-  idle: 5,                  // 待機中
 }
 
 export default function CowList({
