@@ -44,6 +44,52 @@ export default function RecordForm({
   const [error, setError] = useState('')
   const router = useRouter()
 
+  // 発情日が分からない場合：日付なしで発情確認を記録し、そのまま種付け記録へ進む
+  const handleEstrusUnknown = async () => {
+    setLoading(true)
+    setError('')
+    const supabase = createClient()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/'); return }
+
+      const { data: cycle } = await supabase
+        .from('breeding_cycles')
+        .select('*, breeding_events(*)')
+        .eq('cow_id', cowId)
+        .order('cycle_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const cycleNum = cycle ? cycle.cycle_number + 1 : 1
+      const { data: newCycle, error: cycleErr } = await supabase
+        .from('breeding_cycles')
+        .insert({ cow_id: cowId, user_id: user.id, cycle_number: cycleNum })
+        .select()
+        .single()
+      if (cycleErr) throw cycleErr
+
+      // 発情確認日は未定（null）。イベント行は作るので「発情確認済み」として扱われる
+      const { error: evErr } = await supabase.from('breeding_events').insert({
+        cycle_id: newCycle.id, cow_id: cowId, user_id: user.id, estrus_date: null,
+      })
+      if (evErr) throw evErr
+
+      await supabase.from('cows').update({
+        current_status: 'inseminated',
+        next_action_date: null,
+      }).eq('id', cowId)
+
+      // そのまま種付け記録へ
+      router.push(`/cows/${cowId}/record/insemination`)
+      router.refresh()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '記録の保存に失敗しました。もう一度お試しください。'
+      setError(msg)
+      setLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!date) { setError('日付を選択してください'); return }
@@ -214,6 +260,16 @@ export default function RecordForm({
           onChange={(e) => setDate(e.target.value)}
           className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
         />
+        {step === 'estrus' && (
+          <button
+            type="button"
+            onClick={handleEstrusUnknown}
+            disabled={loading}
+            className="mt-3 w-full h-12 border-2 border-gray-300 rounded-xl font-bold text-gray-600 text-base disabled:opacity-50"
+          >
+            発情日は未定（不明）→ 種付け記録へ進む
+          </button>
+        )}
       </div>
 
       {/* 種付け固有フィールド */}
