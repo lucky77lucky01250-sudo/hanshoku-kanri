@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Database, CowStatus } from '@/types/database'
 import { STATUS_CONFIG } from '@/lib/status'
+import { ClearableDateInput } from '@/components/ui/ClearableDateInput'
 
 type Cow = Database['public']['Tables']['cows']['Row']
 type BreedingEvent = Database['public']['Tables']['breeding_events']['Row']
@@ -487,7 +488,7 @@ function RecordEditForm({
       {showEstrus && (
         <div>
           <label className="block text-base font-bold text-gray-700 mb-2">発情確認日</label>
-          <input type="date" value={estrusDate} onChange={(e) => setEstrusDate(e.target.value)} className={inputCls} />
+          <ClearableDateInput value={estrusDate} onChange={setEstrusDate} className={inputCls} />
         </div>
       )}
 
@@ -495,7 +496,7 @@ function RecordEditForm({
         <>
           <div>
             <label className="block text-base font-bold text-gray-700 mb-2">種付け日</label>
-            <input type="date" value={inseminationDate} onChange={(e) => setInseminationDate(e.target.value)} className={inputCls} />
+            <ClearableDateInput value={inseminationDate} onChange={setInseminationDate} className={inputCls} />
           </div>
           <div>
             <label className="block text-base font-bold text-gray-700 mb-2">使用精液</label>
@@ -508,7 +509,7 @@ function RecordEditForm({
         <>
           <div>
             <label className="block text-base font-bold text-gray-700 mb-2">妊娠鑑定日</label>
-            <input type="date" value={pregnancyCheckDate} onChange={(e) => setPregnancyCheckDate(e.target.value)} className={inputCls} />
+            <ClearableDateInput value={pregnancyCheckDate} onChange={setPregnancyCheckDate} className={inputCls} />
           </div>
           <div>
             <label className="block text-base font-bold text-gray-700 mb-3">鑑定結果</label>
@@ -532,7 +533,7 @@ function RecordEditForm({
           {pregnancyResult === true && (
             <div>
               <label className="block text-base font-bold text-gray-700 mb-2">分娩予定日</label>
-              <input type="date" value={expectedCalvingDate} onChange={(e) => setExpectedCalvingDate(e.target.value)} className={inputCls} />
+              <ClearableDateInput value={expectedCalvingDate} onChange={setExpectedCalvingDate} className={inputCls} />
             </div>
           )}
         </>
@@ -542,7 +543,7 @@ function RecordEditForm({
         <>
           <div>
             <label className="block text-base font-bold text-gray-700 mb-2">分娩日</label>
-            <input type="date" value={actualCalvingDate} onChange={(e) => setActualCalvingDate(e.target.value)} className={inputCls} />
+            <ClearableDateInput value={actualCalvingDate} onChange={setActualCalvingDate} className={inputCls} />
           </div>
           <div>
             <label className="block text-base font-bold text-gray-700 mb-3">子牛の性別</label>
@@ -633,10 +634,9 @@ function CowEditForm({ cow, onCancel, onSaved }: { cow: Cow; onCancel: () => voi
 
       <div>
         <label className="block text-base font-bold text-gray-700 mb-2">生年月日</label>
-        <input
-          type="date"
+        <ClearableDateInput
           value={birthDate}
-          onChange={(e) => setBirthDate(e.target.value)}
+          onChange={setBirthDate}
           className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
         />
       </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { ClearableDateInput } from '@/components/ui/ClearableDateInput'
 
 function getTodayStr() {
   const d = new Date()
@@ -280,10 +281,9 @@ export default function RecordForm({
           {pregnancyResult === true && (
             <div>
               <label className="block text-base font-bold text-gray-700 mb-2">分娩予定日（授精+285日で自動入力・修正可）</label>
-              <input
-                type="date"
+              <ClearableDateInput
                 value={expectedCalvingDate}
-                onChange={(e) => setExpectedCalvingDate(e.target.value)}
+                onChange={setExpectedCalvingDate}
                 className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
               />
             </div>

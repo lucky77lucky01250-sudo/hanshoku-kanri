@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { ClearableDateInput } from '@/components/ui/ClearableDateInput'
 
 type InitialStatus = 'idle' | 'pregnancy_check_pending' | 'calving_pending'
 
@@ -147,10 +148,9 @@ export default function CowNewForm({ pastFathers = [] }: { pastFathers?: string[
 
       <div>
         <label className="block text-base font-bold text-gray-700 mb-2">生年月日</label>
-        <input
-          type="date"
+        <ClearableDateInput
           value={birthDate}
-          onChange={(e) => setBirthDate(e.target.value)}
+          onChange={setBirthDate}
           className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
         />
       </div>
@@ -226,10 +226,9 @@ export default function CowNewForm({ pastFathers = [] }: { pastFathers?: string[
       {initialStatus !== 'idle' && (
         <div>
           <label className="block text-base font-bold text-gray-700 mb-2">授精日（任意）</label>
-          <input
-            type="date"
+          <ClearableDateInput
             value={inseminationDate}
-            onChange={(e) => setInseminationDate(e.target.value)}
+            onChange={setInseminationDate}
             max={getTodayStr()}
             className="w-full h-14 px-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-[#1b4332]"
           />
