@@ -8,12 +8,32 @@ import { STATUS_CONFIG, getUrgencyLabel } from '@/lib/status'
 
 type Cow = Database['public']['Tables']['cows']['Row']
 
-type SortKey = 'next_action' | 'ear_tag' | 'created'
+type SortKey = 'management' | 'next_action' | 'ear_tag' | 'created'
 
-export default function CowList({ initialCows, lastCalvingByCow = {} }: { initialCows: Cow[]; lastCalvingByCow?: Record<string, string> }) {
+export default function CowList({
+  initialCows,
+  lastCalvingByCow = {},
+  lastInseminationByCow = {},
+}: {
+  initialCows: Cow[]
+  lastCalvingByCow?: Record<string, string>
+  lastInseminationByCow?: Record<string, string>
+}) {
   const [filter, setFilter] = useState<'all' | 'action'>('all')
   const [search, setSearch] = useState('')
-  const [sortKey, setSortKey] = useState<SortKey>('next_action')
+  const [sortKey, setSortKey] = useState<SortKey>('management')
+
+  // 管理用の並び替えグループ判定
+  // 1) 分娩済み・未授精（分娩日 > 最新授精日、または授精記録なし）→ 分娩日が新しい順
+  // 2) 授精済み（最新授精日 > 分娩日、または分娩なし）→ 授精日が新しい順
+  // 3) どちらでもない（未授精かつ未分娩）→ 末尾
+  const managementInfo = (c: Cow) => {
+    const calving = lastCalvingByCow[c.id]
+    const insem = lastInseminationByCow[c.id]
+    if (calving && (!insem || calving >= insem)) return { group: 1, key: calving }
+    if (insem) return { group: 2, key: insem }
+    return { group: 3, key: '' }
+  }
 
   const query = search.trim().toLowerCase()
   const filtered = initialCows
@@ -27,6 +47,14 @@ export default function CowList({ initialCows, lastCalvingByCow = {} }: { initia
       )
     })
     .sort((a, b) => {
+      if (sortKey === 'management') {
+        const ia = managementInfo(a)
+        const ib = managementInfo(b)
+        if (ia.group !== ib.group) return ia.group - ib.group
+        if (ia.group === 1) return ib.key.localeCompare(ia.key) // 分娩日：新しい順
+        if (ia.group === 2) return ib.key.localeCompare(ia.key) // 授精日：新しい順
+        return a.ear_tag.localeCompare(b.ear_tag, 'ja', { numeric: true })
+      }
       if (sortKey === 'ear_tag') return a.ear_tag.localeCompare(b.ear_tag, 'ja', { numeric: true })
       if (sortKey === 'created') return (b.created_at ?? '').localeCompare(a.created_at ?? '')
       // next_action: 予定日が近い順。予定日なし（idle）は末尾。
@@ -69,6 +97,7 @@ export default function CowList({ initialCows, lastCalvingByCow = {} }: { initia
           onChange={(e) => setSortKey(e.target.value as SortKey)}
           className="flex-1 h-11 px-3 text-base border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#1b4332]"
         >
+          <option value="management">管理順（分娩・授精）</option>
           <option value="next_action">予定日が近い順</option>
           <option value="ear_tag">耳標番号順</option>
           <option value="created">登録が新しい順</option>

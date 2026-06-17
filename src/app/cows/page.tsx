@@ -26,6 +26,22 @@ export default async function CowsPage() {
     }
   }
 
+  // 牛ごとの最新授精日（管理用の並び替えに使用）
+  const { data: cyclesWithInsem } = await supabase
+    .from('breeding_cycles')
+    .select('cow_id, insemination_records(insemination_date)')
+    .eq('user_id', user!.id)
+
+  const lastInseminationByCow: Record<string, string> = {}
+  for (const cy of cyclesWithInsem ?? []) {
+    for (const ins of cy.insemination_records ?? []) {
+      const cur = lastInseminationByCow[cy.cow_id]
+      if (ins.insemination_date && (!cur || ins.insemination_date > cur)) {
+        lastInseminationByCow[cy.cow_id] = ins.insemination_date
+      }
+    }
+  }
+
   return (
     <div>
       <header className="bg-[#1b4332] text-white px-4 py-5">
@@ -33,7 +49,11 @@ export default async function CowsPage() {
         <p className="text-green-200 text-sm">{cows?.length ?? 0}頭登録中</p>
       </header>
 
-      <CowList initialCows={cows ?? []} lastCalvingByCow={lastCalvingByCow} />
+      <CowList
+        initialCows={cows ?? []}
+        lastCalvingByCow={lastCalvingByCow}
+        lastInseminationByCow={lastInseminationByCow}
+      />
     </div>
   )
 }
