@@ -8,32 +8,27 @@ import { STATUS_CONFIG, getUrgencyLabel } from '@/lib/status'
 
 type Cow = Database['public']['Tables']['cows']['Row']
 
-type SortKey = 'management' | 'next_action' | 'ear_tag' | 'created'
+type SortKey = 'cycle' | 'next_action' | 'ear_tag' | 'created'
+
+// 繁殖サイクルの段階順（発情確認→種付け→妊娠鑑定→分娩）。待機中は末尾。
+const CYCLE_ORDER: Record<string, number> = {
+  estrus_pending: 1,        // 発情確認待ち
+  inseminated: 2,           // 種付け待ち
+  pregnancy_check_pending: 3, // 妊娠鑑定待ち
+  calving_pending: 4,       // 分娩待ち
+  idle: 5,                  // 待機中
+}
 
 export default function CowList({
   initialCows,
   lastCalvingByCow = {},
-  lastInseminationByCow = {},
 }: {
   initialCows: Cow[]
   lastCalvingByCow?: Record<string, string>
-  lastInseminationByCow?: Record<string, string>
 }) {
   const [filter, setFilter] = useState<'all' | 'action'>('all')
   const [search, setSearch] = useState('')
-  const [sortKey, setSortKey] = useState<SortKey>('management')
-
-  // 管理用の並び替えグループ判定
-  // 1) 分娩済み・未授精（分娩日 > 最新授精日、または授精記録なし）→ 分娩日が新しい順
-  // 2) 授精済み（最新授精日 > 分娩日、または分娩なし）→ 授精日が新しい順
-  // 3) どちらでもない（未授精かつ未分娩）→ 末尾
-  const managementInfo = (c: Cow) => {
-    const calving = lastCalvingByCow[c.id]
-    const insem = lastInseminationByCow[c.id]
-    if (calving && (!insem || calving >= insem)) return { group: 1, key: calving }
-    if (insem) return { group: 2, key: insem }
-    return { group: 3, key: '' }
-  }
+  const [sortKey, setSortKey] = useState<SortKey>('cycle')
 
   const query = search.trim().toLowerCase()
   const filtered = initialCows
@@ -47,13 +42,17 @@ export default function CowList({
       )
     })
     .sort((a, b) => {
-      if (sortKey === 'management') {
-        const ia = managementInfo(a)
-        const ib = managementInfo(b)
-        if (ia.group !== ib.group) return ia.group - ib.group
-        if (ia.group === 1) return ib.key.localeCompare(ia.key) // 分娩日：新しい順
-        if (ia.group === 2) return ib.key.localeCompare(ia.key) // 授精日：新しい順
-        return a.ear_tag.localeCompare(b.ear_tag, 'ja', { numeric: true })
+      if (sortKey === 'cycle') {
+        // 発情確認→種付け→妊娠鑑定→分娩のサイクル段階順。同段階内は予定日が近い順。
+        const sa = CYCLE_ORDER[a.current_status] ?? 99
+        const sb = CYCLE_ORDER[b.current_status] ?? 99
+        if (sa !== sb) return sa - sb
+        const ad = a.next_action_date
+        const bd = b.next_action_date
+        if (!ad && !bd) return a.ear_tag.localeCompare(b.ear_tag, 'ja', { numeric: true })
+        if (!ad) return 1
+        if (!bd) return -1
+        return ad.localeCompare(bd)
       }
       if (sortKey === 'ear_tag') return a.ear_tag.localeCompare(b.ear_tag, 'ja', { numeric: true })
       if (sortKey === 'created') return (b.created_at ?? '').localeCompare(a.created_at ?? '')
@@ -97,7 +96,7 @@ export default function CowList({
           onChange={(e) => setSortKey(e.target.value as SortKey)}
           className="flex-1 h-11 px-3 text-base border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#1b4332]"
         >
-          <option value="management">管理順（分娩・授精）</option>
+          <option value="cycle">サイクル順（発情→種付け→鑑定→分娩）</option>
           <option value="next_action">予定日が近い順</option>
           <option value="ear_tag">耳標番号順</option>
           <option value="created">登録が新しい順</option>
