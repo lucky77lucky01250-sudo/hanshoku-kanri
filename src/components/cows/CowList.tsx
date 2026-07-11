@@ -94,9 +94,9 @@ export default function CowList({
         <select
           value={sortKey}
           onChange={(e) => setSortKey(e.target.value as SortKey)}
-          className="flex-1 h-11 px-3 text-base border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#1b4332]"
+          className="flex-1 min-w-0 h-11 px-3 text-base border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#1b4332]"
         >
-          <option value="cycle">サイクル順（発情→種付け→鑑定→分娩）</option>
+          <option value="cycle">サイクル順</option>
           <option value="next_action">予定日が近い順</option>
           <option value="ear_tag">耳標番号順</option>
           <option value="created">登録が新しい順</option>
