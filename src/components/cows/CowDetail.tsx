@@ -31,6 +31,11 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: Cycle[] }
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const cancelDeleteRef = useRef<HTMLButtonElement>(null)
+  // 過去サイクルの編集・削除
+  const [editingCycle, setEditingCycle] = useState<Cycle | null>(null)
+  const [deletingCycle, setDeletingCycle] = useState<Cycle | null>(null)
+  const [isDeletingCycle, setIsDeletingCycle] = useState(false)
+  const [cycleDeleteError, setCycleDeleteError] = useState('')
   const router = useRouter()
 
   // 削除モーダル：Escで閉じる＋開いたらキャンセルボタンに初期フォーカス
@@ -75,6 +80,23 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: Cycle[] }
     router.refresh()
   }
 
+  const handleDeleteCycle = async () => {
+    if (!deletingCycle) return
+    setIsDeletingCycle(true)
+    setCycleDeleteError('')
+    const supabase = createClient()
+    // breeding_cycles を削除（イベント・種付け記録はCASCADEで一緒に消える）
+    const { error } = await supabase.from('breeding_cycles').delete().eq('id', deletingCycle.id)
+    if (error) {
+      setCycleDeleteError('削除に失敗しました。もう一度お試しください。')
+      setIsDeletingCycle(false)
+      return
+    }
+    setDeletingCycle(null)
+    setIsDeletingCycle(false)
+    router.refresh()
+  }
+
   if (isEditing) {
     return (
       <CowEditForm
@@ -83,6 +105,26 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: Cycle[] }
         onSaved={() => { setIsEditing(false); router.refresh() }}
       />
     )
+  }
+
+  // 過去サイクルの記録を編集
+  if (editingCycle) {
+    const ev = editingCycle.breeding_events?.[0]
+    const insem = editingCycle.insemination_records?.slice().sort(
+      (a, b) => b.attempt_number - a.attempt_number
+    )[0]
+    if (ev) {
+      return (
+        <RecordEditForm
+          cow={cow}
+          event={ev}
+          insemination={insem}
+          isPastCycle
+          onCancel={() => setEditingCycle(null)}
+          onSaved={() => { setEditingCycle(null); router.refresh() }}
+        />
+      )
+    }
   }
 
   if (isEditingRecord && currentEvent) {
@@ -289,10 +331,67 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: Cycle[] }
                   ) : (
                     <p className="text-gray-400 text-sm">記録なし</p>
                   )}
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                    {ev && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingCycle(cycle)}
+                        className="flex-1 h-11 border-2 border-[#1b4332] rounded-xl font-bold text-[#1b4332] text-sm"
+                      >
+                        🖊 編集
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => { setDeletingCycle(cycle); setCycleDeleteError('') }}
+                      className="flex-1 h-11 border-2 border-red-300 rounded-xl font-bold text-red-600 text-sm"
+                    >
+                      🗑 削除
+                    </button>
+                  </div>
                 </div>
               )
             })
           )}
+        </div>
+      )}
+
+      {/* 過去サイクルの削除確認モーダル */}
+      {deletingCycle && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => { if (!isDeletingCycle) { setDeletingCycle(null); setCycleDeleteError('') } }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold text-gray-800">この記録を削除しますか？</h3>
+            <p className="text-gray-600">
+              <span className="font-bold">サイクル {deletingCycle.cycle_number}</span> の記録が削除されます。この操作は取り消せません。
+            </p>
+            {cycleDeleteError && (
+              <p role="alert" className="text-red-700 text-base font-bold bg-red-50 p-3 rounded-xl border border-red-200">{cycleDeleteError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setDeletingCycle(null); setCycleDeleteError('') }}
+                disabled={isDeletingCycle}
+                className="flex-1 h-14 border-2 border-gray-300 rounded-xl font-bold text-gray-600 text-lg disabled:opacity-50"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleDeleteCycle}
+                disabled={isDeletingCycle}
+                className="flex-1 h-14 bg-red-600 text-white rounded-xl font-bold text-lg disabled:opacity-50"
+              >
+                {isDeletingCycle ? '削除中...' : '削除する'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -341,13 +440,14 @@ export default function CowDetail({ cow, cycles }: { cow: Cow; cycles: Cycle[] }
 }
 
 function RecordEditForm({
-  cow, event, insemination, onCancel, onSaved,
+  cow, event, insemination, onCancel, onSaved, isPastCycle = false,
 }: {
   cow: Cow
   event: BreedingEvent
   insemination: InseminationRecord | undefined
   onCancel: () => void
   onSaved: () => void
+  isPastCycle?: boolean
 }) {
   const [estrusDate, setEstrusDate] = useState(event.estrus_date ?? '')
   const [inseminationDate, setInseminationDate] = useState(insemination?.insemination_date ?? '')
@@ -362,7 +462,8 @@ function RecordEditForm({
   const [error, setError] = useState('')
 
   // 現在のステータスまでに通過したステップは、未記録（スキップ登録）でも編集対象にする
-  const passed = STATUS_PASSED_STEPS[cow.current_status as CowStatus] ?? []
+  // 過去サイクルはそのサイクルの記録だけを対象にする（現在ステータスは無関係）
+  const passed = isPastCycle ? [] : (STATUS_PASSED_STEPS[cow.current_status as CowStatus] ?? [])
   const showEstrus = event.estrus_date != null || passed.includes('estrus')
   const showInsemination = !!insemination || passed.includes('insemination')
   const showPregnancy = !!event.pregnancy_check_date || passed.includes('pregnancy_check')
@@ -416,6 +517,12 @@ function RecordEditForm({
       } else if (insemCleared) {
         const { error: e2 } = await supabase.from('insemination_records').delete().eq('id', insemination!.id)
         if (e2) throw e2
+      }
+
+      // 過去サイクルの編集では、牛の現在ステータス・次回予定日は変更しない（記録の訂正のみ）
+      if (isPastCycle) {
+        onSaved()
+        return
       }
 
       // 初期値からの変更を検知（スキップ登録牛の未記録値を誤って遷移させないため）
