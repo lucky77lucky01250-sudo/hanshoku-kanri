@@ -51,5 +51,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|manifest.json|icons).*)'],
+  // api を除外する。除外しないと Vercel Cron からの /api/notify が
+  // 未ログイン扱いで '/' へリダイレクトされ、通知処理が一度も走らない。
+  // API側は各ルートが自前で認証する（notify=CRON_SECRET / notify/test=ログイン必須）。
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|manifest.json|icons).*)'],
 }
