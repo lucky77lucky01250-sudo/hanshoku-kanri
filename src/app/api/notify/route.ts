@@ -19,6 +19,53 @@ function formatDate(dateStr: string): string {
   })
 }
 
+// Supabaseのエラーは Error インスタンスではないため String() すると
+// "[object Object]" になり、アラートを受け取っても原因が分からない。
+// message / details / hint / code を拾って読める文字列にする。
+function describeError(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object') {
+    const e = err as Record<string, unknown>
+    const parts = [e.message, e.details, e.hint, e.code].filter(Boolean).map(String)
+    if (parts.length > 0) return parts.join(' / ')
+    try {
+      return JSON.stringify(err)
+    } catch {
+      return String(err)
+    }
+  }
+  return String(err)
+}
+
+// 運用者（管理者）への異常通知。
+// 通知処理の失敗が誰にも気づかれないまま放置されるのを防ぐための最後の砦。
+// ここ自体が失敗しても本処理は止めない（通知の通知で落とさない）。
+async function alertAdmin(subject: string, details: string[]) {
+  const to = process.env.ADMIN_EMAIL
+  if (!to) return
+  try {
+    await resend.emails.send({
+      from: '繁殖牛管理 <noreply@ryuoshida.com>',
+      to,
+      subject: `【繁殖牛管理・要対応】${subject}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #b91c1c;">⚠️ 通知処理で問題が発生しました</h2>
+          <p style="margin: 0 0 12px;">${subject}</p>
+          <ul style="background:#fef2f2; border-left:4px solid #b91c1c; padding:12px 12px 12px 28px; border-radius:4px;">
+            ${details.map(d => `<li style="margin:4px 0;">${d}</li>`).join('')}
+          </ul>
+          <p style="color:#666; font-size:13px;">
+            農家への通知が届いていない可能性があります。Vercelの実行ログを確認してください。
+          </p>
+        </div>
+      `,
+    })
+  } catch {
+    // 管理者通知が失敗しても本処理の結果は返す
+  }
+}
+
 function diffDays(dateStr: string): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -184,14 +231,24 @@ export async function GET(request: Request) {
       }
     }
 
+    // 失敗を握りつぶさない。200で返すとVercelのCron実行履歴が「成功」になり、
+    // 送信できていないことに誰も気づけないため、失敗があれば500で返す。
+    if (errors.length > 0) {
+      await alertAdmin(`通知メール${errors.length}件の送信に失敗`, errors)
+      return NextResponse.json(
+        { message: '通知処理は完了したが失敗あり', sent: sentCount, errors, date: today },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({
       message: '通知処理完了',
       sent: sentCount,
-      errors: errors.length > 0 ? errors : undefined,
       date: today,
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = describeError(err)
+    await alertAdmin('通知処理が異常終了', [msg])
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
