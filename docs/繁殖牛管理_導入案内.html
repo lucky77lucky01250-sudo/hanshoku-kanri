@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>繁殖牛管理 導入案内</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Roboto+Mono:wght@500;700&display=swap">
+<style>
+:root{
+  --paper:#f6f8f5; --surface:#ffffff; --ink:#14231c; --ink-soft:#4f5f55;
+  --line:#dde3dc; --green:#1b4332; --green-soft:#e9f1eb; --green-ink:#1b4332;
+  --tag:#c99503; --tag-soft:#fdf5df; --tag-line:#ecd79a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#101610; --surface:#18201a; --ink:#e9efe9; --ink-soft:#a5b2a8;
+    --line:#2b3730; --green:#84cba6; --green-soft:#1b2a22; --green-ink:#bfe6d0;
+    --tag:#e6bd44; --tag-soft:#282212; --tag-line:#4a3e1c;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101610; --surface:#18201a; --ink:#e9efe9; --ink-soft:#a5b2a8;
+  --line:#2b3730; --green:#84cba6; --green-soft:#1b2a22; --green-ink:#bfe6d0;
+  --tag:#e6bd44; --tag-soft:#282212; --tag-line:#4a3e1c;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
+  font-size:15.5px; line-height:1.9; -webkit-font-smoothing:antialiased;
+}
+.sheet{max-width:760px;margin:0 auto;padding:0 26px 64px}
+h1,h2,h3{text-wrap:balance;margin:0}
+.eyebrow{
+  font-family:"Roboto Mono",monospace;font-size:11px;font-weight:700;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--tag);
+}
+
+/* ── 表紙 ── */
+.cover{padding:56px 0 40px;border-bottom:2px solid var(--green);display:flex;flex-direction:column;gap:18px}
+.cover h1{font-family:"Zen Old Mincho",serif;font-size:44px;line-height:1.25;font-weight:700;color:var(--green-ink);letter-spacing:.02em}
+.cover .lead{font-size:18px;line-height:1.85;color:var(--ink-soft);max-width:34em}
+.tagrow{display:flex;flex-wrap:wrap;gap:8px}
+.pill{
+  font-size:12.5px;font-weight:500;padding:5px 12px;border-radius:999px;
+  background:var(--green-soft);color:var(--green-ink);border:1px solid var(--line);
+}
+
+section{padding-top:44px;display:flex;flex-direction:column;gap:18px}
+h2{font-family:"Zen Old Mincho",serif;font-size:25px;font-weight:700;line-height:1.5;color:var(--green-ink)}
+p{margin:0;max-width:36em}
+.muted{color:var(--ink-soft)}
+
+/* ── 課題 ── */
+.pains{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px}
+.pain{
+  background:var(--surface);border:1px solid var(--line);border-radius:4px;
+  padding:16px 18px;font-size:14.5px;line-height:1.8;
+}
+.pain b{display:block;font-weight:700;margin-bottom:4px;color:var(--ink)}
+
+/* ── サイクル（本物の順序＝番号に意味がある） ── */
+.cycle{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line)}
+.step{
+  display:grid;grid-template-columns:52px 1fr;gap:20px;
+  padding:20px 4px;border-bottom:1px solid var(--line);align-items:start;
+}
+.step .no{
+  font-family:"Roboto Mono",monospace;font-size:13px;font-weight:700;color:var(--tag);
+  border:1.5px solid var(--tag-line);background:var(--tag-soft);
+  width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+}
+.step h3{font-size:17px;font-weight:700;margin-bottom:3px}
+.step p{font-size:14.5px;color:var(--ink-soft)}
+.auto{
+  display:inline-block;margin-top:7px;font-family:"Roboto Mono",monospace;
+  font-size:12px;font-weight:500;color:var(--green-ink);background:var(--green-soft);
+  border:1px solid var(--line);border-radius:3px;padding:3px 9px;font-variant-numeric:tabular-nums;
+}
+
+/* ── 機能表 ── */
+.feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 30px}
+.feat div{padding:13px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.feat b{font-weight:700}
+.feat span{display:block;color:var(--ink-soft);font-size:13.5px;line-height:1.75}
+
+/* ── 実績 ── */
+.proof{
+  background:var(--green);color:#f2f7f3;border-radius:6px;padding:28px 30px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:24px;
+}
+:root[data-theme="dark"] .proof,
+:root:not([data-theme="light"]) .proof{background:#1b3529}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .proof{background:var(--green)}}
+.proof .n{font-family:"Roboto Mono",monospace;font-size:38px;font-weight:700;line-height:1.1;color:#f0d98a;font-variant-numeric:tabular-nums}
+.proof .k{font-size:13.5px;color:#c9d9cf;margin-top:5px}
+
+/* ── 導入手順 ── */
+.startlist{list-style:none;margin:0;padding:0;counter-reset:s;display:flex;flex-direction:column;gap:14px}
+.startlist li{counter-increment:s;padding-left:38px;position:relative;font-size:15px}
+.startlist li::before{
+  content:counter(s);position:absolute;left:0;top:2px;
+  font-family:"Roboto Mono",monospace;font-size:12px;font-weight:700;
+  color:var(--surface);background:var(--green);width:24px;height:24px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+}
+:root[data-theme="dark"] .startlist li::before{color:#101610}
+
+.note{border-left:3px solid var(--tag);background:var(--tag-soft);padding:14px 18px;font-size:14px;line-height:1.8;border-radius:0 4px 4px 0}
+
+footer{margin-top:52px;padding-top:22px;border-top:1px solid var(--line);font-size:13.5px;color:var(--ink-soft);display:flex;flex-direction:column;gap:5px}
+footer b{color:var(--ink);font-weight:700}
+
+@media print{
+  @page{size:A4;margin:15mm}
+  body{background:#fff;color:#14231c;font-size:10.5pt}
+  .sheet{max-width:none;padding:0}
+  .cover{padding-top:0}
+  .cover h1{font-size:30pt}
+  h2{font-size:16pt}
+  section{padding-top:26px;break-inside:avoid}
+  .step,.pain,.proof{break-inside:avoid}
+  .proof{background:#1b4332 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pain,.auto,.pill,.note,.step .no{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<header class="cover">
+  <span class="eyebrow">繁殖農家むけ 導入案内</span>
+  <h1>種付けから分娩まで、<br>牛舎でスマホ一台。</h1>
+  <p class="lead">発情・種付け・妊娠鑑定・分娩の記録を、スマホで入力するだけ。次にやることと、その予定日は、アプリが勝手に計算します。ノートも表計算も要りません。</p>
+  <div class="tagrow">
+    <span class="pill">スマホのホーム画面から起動</span>
+    <span class="pill">予定日を自動計算</span>
+    <span class="pill">7日前・3日前にメール</span>
+    <span class="pill">データは農家ごとに分離</span>
+  </div>
+</header>
+
+<section>
+  <h2>こんなこと、ありませんか</h2>
+  <div class="pains">
+    <div class="pain"><b>予定日がすぐ出てこない</b>種付け日から数えて手帳に書く。書き写すたびに間違える。</div>
+    <div class="pain"><b>鑑定のタイミングを逃す</b>気づいたら鑑定の時期を過ぎていて、空胎期間が延びる。</div>
+    <div class="pain"><b>ノートが牛舎で傷む</b>濡れる、汚れる、どこかに置き忘れる。過去の記録が読めない。</div>
+    <div class="pain"><b>頭数が増えると追えない</b>どの牛が今どの段階なのか、一覧で見渡せない。</div>
+  </div>
+</section>
+
+<section>
+  <h2>繁殖サイクルの4段階を、順番になぞるだけ</h2>
+  <p class="muted">画面が今の段階を示すので、次に何を入力すればいいか迷いません。日付を入れると、次の予定日が自動で入ります。</p>
+  <div class="cycle">
+    <div class="step">
+      <div class="no">01</div>
+      <div>
+        <h3>発情の確認</h3>
+        <p>発情を確認した日を入力します。日にちがはっきりしない場合は、飛ばして種付けから始めることもできます。</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="no">02</div>
+      <div>
+        <h3>種付け</h3>
+        <p>授精日と種雄牛の名前を記録します。不受胎だったときの再種付けも、同じ牛の記録として何回でも積み重ねられます。</p>
+        <span class="auto">次の予定 = 授精日 + 21日（発情の再来に注意）</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="no">03</div>
+      <div>
+        <h3>妊娠鑑定</h3>
+        <p>鑑定日と結果を記録します。陰性なら、そのまま再種付けの記録へ進めます。</p>
+        <span class="auto">鑑定の目安 = 授精日 + 40日</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="no">04</div>
+      <div>
+        <h3>分娩</h3>
+        <p>分娩日・子牛の雌雄・体重を記録すると、その牛は次のサイクルへ進みます。過去のサイクルはいつでも見返せます。</p>
+        <span class="auto">分娩予定日 = 授精日 + 285日（手直しも可）</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>できること</h2>
+  <div class="feat">
+    <div><b>牛の一覧</b><span>耳標・血統・今の段階・次の予定日が一画面。期限が過ぎた牛は「⚠️ 3日超過」と赤で出ます。</span></div>
+    <div><b>並び替えと検索</b><span>耳標で探す。繁殖の段階順に並べて、手を打つべき牛を先頭に集める。</span></div>
+    <div><b>メールでお知らせ</b><span>分娩・妊娠鑑定の予定日の7日前と3日前に、登録したアドレスへ自動で届きます。</span></div>
+    <div><b>途中からでも登録できる</b><span>すでに種付け済み・妊娠鑑定済みの牛も、その段階から入力を始められます。</span></div>
+    <div><b>書き間違いを直せる</b><span>入力した記録は後から修正・削除できます。過去のサイクルの記録も直せます。</span></div>
+    <div><b>CSVで書き出し</b><span>全頭の記録をファイルに出せます。パソコンの表計算ソフトでそのまま開けます。</span></div>
+    <div><b>ホーム画面に置ける</b><span>アプリストアからの導入は不要。スマホのホーム画面に追加すれば普通のアプリと同じように開けます。</span></div>
+    <div><b>他人には見えない</b><span>データは農家ごとに完全に分けて保管されます。自分の牛は自分にしか見えません。</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>すでに現場で動いています</h2>
+  <div class="proof">
+    <div><div class="n">2</div><div class="k">導入いただいた農家（戸）</div></div>
+    <div><div class="n">51</div><div class="k">実際に管理中の頭数</div></div>
+    <div><div class="n">2026.6</div><div class="k">運用開始から継続稼働</div></div>
+  </div>
+  <p class="muted">試験導入ではなく、日々の種付け記録が実際に入力され続けています。現場から出た「日付を消せない」「発情日がわからなくても種付けを記録したい」といった要望は、その都度アプリに反映してきました。</p>
+</section>
+
+<section>
+  <h2>はじめかた</h2>
+  <ol class="startlist">
+    <li>メールアドレスをお知らせください。こちらでご利用の準備をします。</li>
+    <li>届いたリンクをスマホで開き、メールアドレスとパスワードを登録します（Googleアカウントでも入れます）。</li>
+    <li>ブラウザのメニューから「ホーム画面に追加」を選ぶと、アプリとして開けるようになります。</li>
+    <li>設定画面で通知先のメールアドレスを入れると、予定日のお知らせが届きます。</li>
+    <li>牛を登録します。今どの段階の牛でも、その段階から入力を始められます。</li>
+  </ol>
+  <div class="note"><b>ご用意いただくもの</b>：インターネットにつながるスマートフォンと、メールアドレスだけです。専用の機械や工事は必要ありません。利用料はいただいていません。</div>
+</section>
+
+<footer>
+  <b>繁殖牛管理アプリ</b>
+  <div>開発・運用：RyuWorks（押田竜太）</div>
+  <div>お問い合わせ：lucky77lucky01250@gmail.com</div>
+  <div>畜産の現場に18年たずさわってきた経験をもとに、自分の牛舎で使うために作ったものです。ご要望があればお聞かせください。</div>
+</footer>
+
+</div>
+</body>
+</html>

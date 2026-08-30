@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>繁殖牛管理 開発実績</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap">
+<style>
+:root{
+  --paper:#f6f8f5; --surface:#ffffff; --ink:#14231c; --ink-soft:#4f5f55;
+  --line:#dde3dc; --green:#1b4332; --green-soft:#e9f1eb; --green-ink:#1b4332;
+  --tag:#c99503; --tag-soft:#fdf5df; --tag-line:#ecd79a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#101610; --surface:#18201a; --ink:#e9efe9; --ink-soft:#a5b2a8;
+    --line:#2b3730; --green:#84cba6; --green-soft:#1b2a22; --green-ink:#bfe6d0;
+    --tag:#e6bd44; --tag-soft:#282212; --tag-line:#4a3e1c;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101610; --surface:#18201a; --ink:#e9efe9; --ink-soft:#a5b2a8;
+  --line:#2b3730; --green:#84cba6; --green-soft:#1b2a22; --green-ink:#bfe6d0;
+  --tag:#e6bd44; --tag-soft:#282212; --tag-line:#4a3e1c;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
+  font-size:15px;line-height:1.9;-webkit-font-smoothing:antialiased;
+}
+.sheet{max-width:780px;margin:0 auto;padding:0 26px 64px}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{margin:0;max-width:38em}
+.muted{color:var(--ink-soft)}
+.eyebrow{font-family:"Roboto Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--tag)}
+
+.cover{padding:56px 0 34px;border-bottom:2px solid var(--green);display:flex;flex-direction:column;gap:16px}
+.cover h1{font-family:"Zen Old Mincho",serif;font-size:40px;line-height:1.3;font-weight:700;color:var(--green-ink)}
+.cover .lead{font-size:17px;color:var(--ink-soft);max-width:35em}
+
+/* 諸元表 */
+.spec{margin-top:8px;border-top:1px solid var(--line)}
+.spec dl{display:grid;grid-template-columns:8.5em 1fr;margin:0;border-bottom:1px solid var(--line)}
+.spec dt{padding:10px 0;font-size:13px;font-weight:700;color:var(--ink-soft);letter-spacing:.04em}
+.spec dd{padding:10px 0;margin:0;font-size:14.5px}
+
+section{padding-top:42px;display:flex;flex-direction:column;gap:16px}
+h2{font-family:"Zen Old Mincho",serif;font-size:24px;font-weight:700;color:var(--green-ink);line-height:1.5}
+h3{font-size:16px;font-weight:700}
+
+/* 課題→判断 */
+.calls{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line)}
+.call{padding:18px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr;gap:6px}
+.call .q{font-size:13px;font-weight:700;color:var(--tag);letter-spacing:.03em}
+.call p{font-size:14.5px;color:var(--ink-soft)}
+
+/* 機能 */
+.feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:0 30px}
+.feat div{padding:12px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.feat b{font-weight:700}
+.feat span{display:block;color:var(--ink-soft);font-size:13.5px;line-height:1.75}
+
+/* 技術構成 */
+.stackwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:460px;font-size:14px}
+th,td{text-align:left;padding:10px 14px 10px 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12.5px;font-weight:700;color:var(--ink-soft);letter-spacing:.06em;text-transform:uppercase;font-family:"Roboto Mono",monospace}
+td:first-child{white-space:nowrap;font-weight:700;width:11em}
+td code{font-family:"Roboto Mono",monospace;font-size:13px;background:var(--green-soft);border:1px solid var(--line);border-radius:3px;padding:1px 6px}
+
+/* 実績数値 */
+.proof{background:var(--green);color:#f2f7f3;border-radius:6px;padding:26px 30px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:22px}
+:root[data-theme="dark"] .proof,:root:not([data-theme="light"]) .proof{background:#1b3529}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .proof{background:var(--green)}}
+.proof .n{font-family:"Roboto Mono",monospace;font-size:34px;font-weight:700;line-height:1.1;color:#f0d98a;font-variant-numeric:tabular-nums}
+.proof .k{font-size:13px;color:#c9d9cf;margin-top:4px}
+
+/* 改善ログ */
+.log{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line)}
+.log .row{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:14px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log .from{color:var(--ink-soft)}
+.log .to{font-weight:500}
+.log .head{font-family:"Roboto Mono",monospace;font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tag)}
+
+.note{border-left:3px solid var(--tag);background:var(--tag-soft);padding:14px 18px;font-size:14px;line-height:1.8;border-radius:0 4px 4px 0}
+
+footer{margin-top:50px;padding-top:22px;border-top:1px solid var(--line);font-size:13.5px;color:var(--ink-soft);display:flex;flex-direction:column;gap:5px}
+footer b{color:var(--ink);font-weight:700}
+
+@media print{
+  @page{size:A4;margin:15mm}
+  body{background:#fff;color:#14231c;font-size:10pt}
+  .sheet{max-width:none;padding:0}
+  .cover{padding-top:0}
+  .cover h1{font-size:27pt}
+  h2{font-size:15pt}
+  section{padding-top:24px;break-inside:avoid}
+  .call,.proof,.log .row,.spec dl{break-inside:avoid}
+  .proof{background:#1b4332 !important}
+  .proof,.note,td code,.spec{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<header class="cover">
+  <span class="eyebrow">開発実績 / 自社プロダクト</span>
+  <h1>繁殖牛管理システム</h1>
+  <p class="lead">和牛繁殖農家の種付け・妊娠鑑定・分娩の記録を、スマホだけで完結させる業務システム。企画から設計・実装・運用まで一人で担当し、2026年6月のリリース以降、実際の農家の現場で稼働し続けています。</p>
+  <div class="spec">
+    <dl><dt>種別</dt><dd>自社開発プロダクト（受託ではなく、現場の課題起点で企画）</dd></dl>
+    <dl><dt>担当</dt><dd>要件定義・DB設計・実装・インフラ構築・運用保守（単独）</dd></dl>
+    <dl><dt>期間</dt><dd>2026年6月リリース、以降も現場要望を反映して継続開発</dd></dl>
+    <dl><dt>利用者</dt><dd>和牛繁殖農家（スマートフォンからの現場入力を前提）</dd></dl>
+    <dl><dt>主要技術</dt><dd>Next.js 14 / TypeScript / Supabase / Vercel / PWA</dd></dl>
+  </div>
+</header>
+
+<section>
+  <h2>解決した課題</h2>
+  <p>和牛の繁殖管理は、種付けから分娩まで約10か月かかります。この間、農家は「授精日から285日後が分娩予定」「40日後に妊娠鑑定」「不受胎なら21日後に発情が戻る」といった逆算を、頭数ぶん手帳とカレンダーで管理しています。頭数が増えるほど破綻し、鑑定の遅れがそのまま空胎期間の延長、つまり収益の損失になります。</p>
+  <p class="muted">既存の畜産システムはパソコン前提・多機能・高額で、数十頭規模の農家が牛舎で片手で使えるものではありませんでした。そこを狙って設計しています。</p>
+</section>
+
+<section>
+  <h2>設計上の判断</h2>
+  <div class="calls">
+    <div class="call">
+      <div class="q">判断 1 ── 入力させない設計にする</div>
+      <p>現場の入力は「日付ひとつ」で終わるようにし、次の予定日は業務ルールから自動算出しました。285日・40日・21日という繁殖の周期をコードに落とし込み、人間が計算する場面をなくしています。</p>
+    </div>
+    <div class="call">
+      <div class="q">判断 2 ── 途中の状態から始められるようにする</div>
+      <p>導入時、農家の牛はすでにバラバラの段階にいます。最初の段階から順に入れさせる設計では誰も使い始められないため、任意の段階から登録を開始できるスキップ登録を用意しました。これが導入初日に51頭が登録された理由です。</p>
+    </div>
+    <div class="call">
+      <div class="q">判断 3 ── アプリストアを経由しない</div>
+      <p>PWAとして構築し、ホーム画面に追加するだけでアプリとして起動できるようにしました。審査も配信費用もなく、修正したその日に全利用者へ反映されます。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>主な機能</h2>
+  <div class="feat">
+    <div><b>繁殖サイクル管理</b><span>発情・種付け・妊娠鑑定・分娩の4段階をステータスとして保持し、記録に応じて自動遷移。</span></div>
+    <div><b>再種付け対応</b><span>1サイクル内で複数回の授精を試行回数つきで記録。不受胎からの再挑戦を履歴として残す。</span></div>
+    <div><b>予定日の自動算出</b><span>授精日を起点に分娩予定日・鑑定日・発情再来日を計算。手修正も可能。</span></div>
+    <div><b>期限のアラート表示</b><span>一覧上で「本日」「3日超過」を色分け表示し、対応漏れを可視化。</span></div>
+    <div><b>メール通知バッチ</b><span>日次バッチで予定日の7日前・3日前に自動送信。重複送信はDB制約で防止。</span></div>
+    <div><b>記録の修正・取り消し</b><span>過去サイクルを含め、記録の編集・削除に対応。状態の整合も自動で戻す。</span></div>
+    <div><b>CSVエクスポート</b><span>全頭の記録を書き出し、既存の帳簿運用へ接続できる。</span></div>
+    <div><b>マルチテナント</b><span>農家ごとにデータを完全分離。全テーブルに行レベルセキュリティを適用。</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>技術構成</h2>
+  <div class="stackwrap">
+  <table>
+    <thead><tr><th>領域</th><th>採用技術と選定理由</th></tr></thead>
+    <tbody>
+      <tr><td>フロントエンド</td><td><code>Next.js 14 (App Router)</code> / <code>TypeScript</code> / <code>Tailwind CSS</code>。サーバーコンポーネント前提で、通信の遅い牛舎でも初回表示を軽くする構成。</td></tr>
+      <tr><td>データベース</td><td><code>Supabase (PostgreSQL)</code>。牛・サイクル・授精記録・イベントを正規化し、サイクル番号には一意制約を設定。</td></tr>
+      <tr><td>認証・権限</td><td><code>Supabase Auth</code> ＋ 行レベルセキュリティ。自分の牛に紐づくデータしか読み書きできないポリシーを全テーブルに適用し、他ユーザー名義での書き込みも遮断。</td></tr>
+      <tr><td>定期実行</td><td><code>Vercel Cron</code> で日次バッチを起動。共有シークレットで外部からの実行を拒否。</td></tr>
+      <tr><td>メール配信</td><td><code>Resend</code>（独自ドメイン送信）。送信履歴をDBに残し、二重送信を一意制約で防ぐ。</td></tr>
+      <tr><td>モバイル対応</td><td><code>PWA (Serwist)</code>。ホーム画面への追加、iOSのセーフエリア対応、片手操作前提のボトムナビゲーション。</td></tr>
+      <tr><td>ホスティング</td><td><code>Vercel</code>。GitHubへのプッシュで自動デプロイ。</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>運用実績</h2>
+  <div class="proof">
+    <div><div class="n">2</div><div class="k">導入農家（戸）</div></div>
+    <div><div class="n">51</div><div class="k">管理中の頭数</div></div>
+    <div><div class="n">55</div><div class="k">記録された種付け</div></div>
+    <div><div class="n">23</div><div class="k">リリース後の改善反映</div></div>
+  </div>
+  <p>デモや試験導入ではなく、実際の繁殖記録が入力され続けています。リリースから約2か月半のあいだに23回の改善をリリースし、そのほとんどが利用者から挙がった要望への対応です。</p>
+</section>
+
+<section>
+  <h2>現場のフィードバックで直したこと</h2>
+  <p class="muted">机上では出てこない、実際に使われて初めて分かった問題です。ここを拾って直し続けられるかが、導入して終わりのシステムとの差になります。</p>
+  <div class="log">
+    <div class="row"><div class="head">現場で起きたこと</div><div class="head">対応</div></div>
+    <div class="row"><div class="from">iPhoneで一度入れた日付を消せず、間違いを直せない</div><div class="to">日付入力にクリアボタンを追加</div></div>
+    <div class="row"><div class="from">発情日がはっきりしないと種付けを記録できない</div><div class="to">発情日が未定でも種付けへ進める運用に変更</div></div>
+    <div class="row"><div class="from">不受胎のあと、再種付けの入口が分からない</div><div class="to">妊娠鑑定待ちの牛に再種付けの導線を追加</div></div>
+    <div class="row"><div class="from">父牛名を毎回手で打つのが牛舎では厳しい</div><div class="to">過去に入力した父牛名を候補ボタンで提示</div></div>
+    <div class="row"><div class="from">手を打つべき牛が一覧のどこにいるか探しづらい</div><div class="to">繁殖の段階順に並べ替える機能を追加</div></div>
+    <div class="row"><div class="from">通知日数や分娩予定日が実務の感覚と合わない</div><div class="to">現場の運用に合わせて日数の基準を再調整</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>この実績が示すもの</h2>
+  <div class="note">
+    業務の流れを聞き取って要件に落とし、DB設計から本番運用・保守までを一人で完結できること。そして<b>作って終わりにせず、使われ方を見て直し続けられること</b>。畜産の現場に18年たずさわった経験があるため、業界特有の業務を通訳なしで理解し、そのまま設計に落とせます。同じ進め方は、他の業種の業務システムにも適用できます。
+  </div>
+</section>
+
+<footer>
+  <b>RyuWorks ／ 押田竜太</b>
+  <div>AIエンジニア・業務システム開発</div>
+  <div>lucky77lucky01250@gmail.com</div>
+  <div>畜産18年の実務経験を持つ開発者として、業務理解から実装・運用までを一貫して担当します。</div>
+</footer>
+
+</div>
+</body>
+</html>
