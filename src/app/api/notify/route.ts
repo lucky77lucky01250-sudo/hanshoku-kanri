@@ -2,20 +2,41 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { NextResponse } from 'next/server'
 
-// このAPIは毎朝8時にSupabase Edge FunctionsのCronから呼ばれる
-// または手動でGET /api/notify を叩いてもテストできる
+// このAPIは Vercel Cron（vercel.json: 0 23 * * * = 23:00 UTC = 翌朝8:00 JST）から呼ばれる。
+// 手動で叩く場合は Authorization: Bearer <CRON_SECRET> が必要。
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+// 日付はすべて「日本時間の暦日」として扱う。
+// 実行環境(Vercel)はUTCで動くため、new Date() のローカル時刻に頼ると
+// Cron発火時刻(23:00 UTC = 翌朝8:00 JST)にサーバの日付が日本より1日前になり、
+// 「3日前です」が2日前に、発情注意の「本日です」が翌日に届いてしまう。
+
+// 日本時間での今日の暦日を 'YYYY-MM-DD' で返す。
+// 日本は夏時間がなく常にUTC+9なので、9時間ずらしてから日付を取れば確実。
+// toLocaleDateString('sv-SE') でも取れるが、実行環境のロケールデータに
+// 依存して壊れる余地があるため、依存のないこの形にしている。
+function todayInJST(): string {
+  const jst = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  return jst.toISOString().split('T')[0]
+}
+
+// 'YYYY-MM-DD' をUTC0時に固定して暦日として扱う。
+// 実行環境のタイムゾーンに左右されずに日数の加減算ができる。
+function toDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d))
+}
+
 function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  d.setDate(d.getDate() + days)
+  const d = toDate(dateStr)
+  d.setUTCDate(d.getUTCDate() + days)
   return d.toISOString().split('T')[0]
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('ja-JP', {
-    year: 'numeric', month: 'long', day: 'numeric'
+  return toDate(dateStr).toLocaleDateString('ja-JP', {
+    timeZone: 'UTC', year: 'numeric', month: 'long', day: 'numeric'
   })
 }
 
@@ -66,11 +87,11 @@ async function alertAdmin(subject: string, details: string[]) {
   }
 }
 
+// 日本時間の今日から見て、その日付が何日後かを返す
 function diffDays(dateStr: string): number {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const target = new Date(dateStr + 'T00:00:00')
-  return Math.floor((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  const today = toDate(todayInJST())
+  const target = toDate(dateStr)
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }
 
 export async function GET(request: Request) {
@@ -86,7 +107,7 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY! // Service Role Keyで全ユーザーのデータにアクセス
   )
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayInJST()
   let sentCount = 0
   const errors: string[] = []
 
